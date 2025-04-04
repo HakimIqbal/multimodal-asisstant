@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+ctransformers
+chainlit
+langchain
+langchain-community
+langsmith
+literalai
+faiss-cpu
+streamlit
+python-dotenv
+mistralai 
+tiktoken 
+pypdf 
+pytesseract
+opencv-python
+pdfplumber
