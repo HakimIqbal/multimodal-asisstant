@@ -14,4 +14,7 @@ tiktoken
 pypdf 
 pytesseract
 opencv-python
+pdf2image
+pillow
 pdfplumber
+python-docx
