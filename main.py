@@ -1,6 +1,7 @@
+# Entry point utama (Menjalankan API & UI)
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from model import MistralChatbot
+from models import MistralChatbot
 import os
 from dotenv import load_dotenv
 

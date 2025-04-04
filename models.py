@@ -1,3 +1,4 @@
+# Modul untuk memuat semua model (Chat, RAG, OCR, dll.)
 import os
 from ctransformers import AutoModelForCausalLM
 
