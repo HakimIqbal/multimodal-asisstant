@@ -2,7 +2,6 @@ fastapi
 uvicorn
 ctransformers
 sentence-transformers
-chainlit
 requests
 streamlit
 langchain
@@ -22,3 +21,5 @@ pillow
 pdfplumber
 python-docx
 python-multipart
+numpy
+groq

@@ -1,27 +1,24 @@
 from fastapi import APIRouter, File, UploadFile
 import os
 import shutil
-from src.ocr import extract_text  # Import fungsi OCR dari src
+from src.ocr import extract_text
+from src.vector_db import add_text_to_vector_store
+from config import Config
 
 router = APIRouter()
 
-UPLOAD_DIR = "data-rag/documents/"
-os.makedirs(UPLOAD_DIR, exist_ok=True)  # Buat folder jika belum ada
-
 @router.post("/upload/")
 async def upload_file(files: list[UploadFile] = File(...)):
-    """Menerima banyak file (PNG, JPG, JPEG, PDF, DOCX), menyimpannya, lalu mengekstrak teks"""
     responses = []
-
     for file in files:
-        file_path = os.path.join(UPLOAD_DIR, file.filename)
-
-        # Simpan file yang diunggah
+        file_path = os.path.join(Config.DOCUMENTS_PATH, file.filename)
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-
-        # Ekstrak teks dari file
-        extracted_text = extract_text(file_path)
-        responses.append({"filename": file.filename, "text": extracted_text})
+        
+        text = extract_text(file_path)
+        result = add_text_to_vector_store(text, file.filename)
+        responses.append({"filename": file.filename, "text": text, "status": result})
     
     return {"status": "success", "results": responses}
