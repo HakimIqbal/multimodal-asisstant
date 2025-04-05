@@ -1,7 +1,10 @@
 fastapi
 uvicorn
 ctransformers
+sentence-transformers
 chainlit
+requests
+streamlit
 langchain
 langchain-community
 langsmith
@@ -18,3 +21,4 @@ pdf2image
 pillow
 pdfplumber
 python-docx
+python-multipart

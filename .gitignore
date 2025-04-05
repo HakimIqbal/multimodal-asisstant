@@ -3,3 +3,11 @@
 .env
 j.md
 *.gguf
+api/__pycache__/
+api/__init__.py
+data-rag/documents/
+data-rag/embeddings/
+data-rag/faiss_index/
+fileujicoba-pdf-png-docx-jpeg-jpg/
+src/__pycache__
+src/__init__.py
