@@ -15,3 +15,4 @@ opencv-python
 numpy
 python-dotenv
 requests
+langchain-groq
