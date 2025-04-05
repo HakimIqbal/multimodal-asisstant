@@ -1,25 +1,21 @@
 from langchain.chains import RetrievalQA
-from langchain.llms import CTransformers
-from src.vector_db import vector_store
-from config import Config
+from langchain.prompts import PromptTemplate
+from models import llm, vector_store
 
-llm = CTransformers(
-    model=Config.MODEL_PATH,
-    model_type="mistral",
-    config={"gpu_layers": 0, "context_length": 4096}
-)
+# Template prompt untuk RAG
+prompt_template = """Context: {context}
+Question: {question}
+Answer:"""
 
-# Inisialisasi RetrievalQA dengan LangChain
+PROMPT = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
+
+# Inisialisasi chain RAG
 rag_chain = RetrievalQA.from_chain_type(
     llm=llm,
     chain_type="stuff",
     retriever=vector_store.as_retriever(search_kwargs={"k": 3}),
-    return_source_documents=True
+    chain_type_kwargs={"prompt": PROMPT}
 )
 
 def query_rag(question: str):
-    result = rag_chain({"query": question})
-    return {
-        "answer": result["result"],
-        "sources": [doc.metadata["source"] for doc in result["source_documents"]]
-    }
+    return rag_chain.run(question)

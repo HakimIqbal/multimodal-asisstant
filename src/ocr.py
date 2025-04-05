@@ -22,38 +22,29 @@ def preprocess_image(image_path: str) -> np.ndarray:
 def extract_text_from_image(image_path: str) -> str:
     if not os.path.exists(image_path):
         return f"❌ Error: File gambar '{image_path}' tidak ditemukan."
-    try:
-        processed_img = preprocess_image(image_path)
-        if processed_img is None:
-            return "❌ Error: Tidak dapat membaca gambar."
-        text = pytesseract.image_to_string(processed_img)
-        return text.strip() or "⚠️ Tidak ada teks yang terdeteksi."
-    except Exception as e:
-        return f"❌ Error membaca gambar: {e}"
+    processed_img = preprocess_image(image_path)
+    if processed_img is None:
+        return "❌ Error: Tidak dapat membaca gambar."
+    text = pytesseract.image_to_string(processed_img)
+    return text.strip() or "⚠️ Tidak ada teks yang terdeteksi dalam gambar."
 
 def extract_text_from_pdf(pdf_path: str) -> str:
     if not os.path.exists(pdf_path):
         return f"❌ Error: File PDF '{pdf_path}' tidak ditemukan."
-    try:
-        text = ""
-        with pdfplumber.open(pdf_path) as pdf:
-            for page in pdf.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text += page_text + "\n"
-        return text.strip() or "⚠️ Tidak ada teks yang terdeteksi."
-    except Exception as e:
-        return f"❌ Error membaca PDF: {e}"
+    text = ""
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
+    return text.strip() or "⚠️ Tidak ada teks yang terdeteksi dalam PDF."
 
 def extract_text_from_docx(docx_path: str) -> str:
     if not os.path.exists(docx_path):
         return f"❌ Error: File DOCX '{docx_path}' tidak ditemukan."
-    try:
-        doc = docx.Document(docx_path)
-        text = "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
-        return text.strip() or "⚠️ Tidak ada teks yang terdeteksi."
-    except Exception as e:
-        return f"❌ Error membaca DOCX: {e}"
+    doc = docx.Document(docx_path)
+    text = "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
+    return text.strip() or "⚠️ Tidak ada teks yang terdeteksi dalam DOCX."
 
 def extract_text(file_path: str) -> Optional[str]:
     _, ext = os.path.splitext(file_path)

@@ -1,8 +1,8 @@
 /multimodal-assistant/
 ├── main.py               # Entry point utama (Menjalankan API & UI)
-├── models.py             # Modul untuk memuat semua model (Chat, RAG, OCR, dll.)
+├── models.py             # Modul untuk inisialisasi model dan koneksi ke Groq
 ├── app.py                # UI dengan Streamlit
-├── config.py             # Konfigurasi global (path model, API keys, dsb.)
+├── config.py             # Konfigurasi global (path, API keys dari .env)
 ├── requirements.txt      # Dependencies
 ├── data-rag/
 │   ├── documents/        # Folder untuk menyimpan dokumen mentah
@@ -13,15 +13,11 @@
 │   │   │   ├── contoh_dokumen.pdf
 │   ├── embeddings/       # Folder untuk menyimpan vektor embedding
 │   ├── faiss_index/      # Folder penyimpanan FAISS Index
-├── models/
-│   ├── mistral-7b-instruct-v0.1.Q3_K_M.gguf  # Model LLM lokal
-│   ├── tesseract/        # Model OCR Tesseract
-│   ├── whisper/          # Model Whisper (opsional)
 ├── src/
 │   ├── ocr.py            # Modul OCR (Tesseract)
 │   ├── vector_db.py      # Modul FAISS (Vector DB)
 │   ├── rag.py            # Modul RAG (Query & Retrieval)
-│   ├── chat.py           # Modul Chatbot (LLM)
+│   ├── chat.py           # Modul Chatbot (Groq API)
 ├── api/
 │   ├── server.py         # API menggunakan FastAPI
 │   ├── endpoints/        # Folder untuk endpoint API

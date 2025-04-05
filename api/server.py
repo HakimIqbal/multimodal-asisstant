@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.endpoints import ocr, chat, rag
+from api.endpoints import ocr, rag, chat
 
 app = FastAPI()
 
@@ -13,9 +13,9 @@ app.add_middleware(
 )
 
 app.include_router(ocr.router, prefix="/ocr")
-app.include_router(chat.router, prefix="/chat")
 app.include_router(rag.router, prefix="/rag")
+app.include_router(chat.router, prefix="/chat")
 
 @app.get("/")
 def home():
-    return {"message": "API RAG + OCR is running!"}
+    return {"message": "Multimodal Assistant API is running!"}

@@ -1,9 +1,13 @@
-from fastapi import APIRouter, Form
-from src.chat import generate_response
+from fastapi import APIRouter
+from pydantic import BaseModel
+from src.chat import chat_with_memory
 
 router = APIRouter()
 
-@router.post("/ask/")
-async def ask_chatbot(query: str = Form(...)):
-    response = generate_response(query)
-    return {"query": query, "answer": response}
+class ChatRequest(BaseModel):
+    question: str
+
+@router.post("/chat/")
+async def chat(request: ChatRequest):
+    response = chat_with_memory(request.question)
+    return {"question": request.question, "response": response}
