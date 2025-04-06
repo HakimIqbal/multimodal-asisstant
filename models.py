@@ -3,7 +3,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_groq import ChatGroq
 from src.vector_db import load_vector_store, process_and_store_text
-from config import GROQ_API_KEY, VECTOR_DB_PATH, DOCUMENTS_PATH, SUBFOLDERS
+from config import GROQ_API_KEY, VECTOR_DB_PATH, DOCUMENTS_PATH, SUBFOLDERS, LANGSMITH_TRACING  # Tambahkan LANGSMITH_TRACING
 from src.ocr import extract_text
 
 # Inisialisasi model embedding untuk FAISS
@@ -19,18 +19,17 @@ llm = ChatGroq(
 
 # Fungsi untuk menginisialisasi atau memuat vector store
 def initialize_vector_store():
-    # Cek apakah indeks FAISS sudah ada
     faiss_index_path = os.path.join(VECTOR_DB_PATH, "index.faiss")
     if os.path.exists(faiss_index_path):
         try:
             print(f"System: Memuat indeks FAISS yang ada dari {VECTOR_DB_PATH}")
-            return load_vector_store(VECTOR_DB_PATH, embedding_model)
+            return load_vector_store(VECTOR_DB_PATH, embedding_model, allow_dangerous_deserialization=True)  # Tambahkan parameter
         except Exception as e:
             print(f"System: Gagal memuat indeks FAISS: {e}. Memulai ulang dengan dokumen yang ada.")
 
     # Jika indeks tidak ada atau gagal dimuat, buat baru dan proses ulang dokumen
     print("System: Indeks FAISS tidak ditemukan atau rusak. Membuat indeks baru dan memproses ulang dokumen.")
-    vector_store = FAISS.from_texts([""], embedding_model)  # Inisialisasi kosong sementara
+    vector_store = FAISS.from_texts([""], embedding_model)
 
     # Proses ulang semua dokumen yang ada di subfolder
     processed_files = 0
