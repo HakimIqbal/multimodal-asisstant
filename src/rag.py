@@ -3,8 +3,8 @@ from langchain.prompts import PromptTemplate
 from models import llm, vector_store
 from config import LANGSMITH_TRACING
 
-# Template prompt yang lebih ketat
-prompt_template = """Gunakan hanya informasi dari konteks berikut untuk menjawab pertanyaan. Jika konteks tidak cukup untuk menjawab, katakan "Saya tidak memiliki informasi cukup dari dokumen yang diunggah untuk menjawab ini."
+prompt_template = """System: Saya adalah Assistant yang hanya menjawab berdasarkan dokumen yang diunggah melalui RAG System + OCR. 
+Saya tidak akan menggunakan pengetahuan eksternal di luar dokumen tersebut. Jika informasi tidak ada, saya akan memberitahu Anda.
 Context: {context}
 Question: {question}
 Answer:"""
@@ -21,9 +21,8 @@ rag_chain = RetrievalQA.from_chain_type(
 def query_rag(question: str):
     if LANGSMITH_TRACING:
         print(f"Melacak query '{question}' di LangSmith.")
-    # Ambil dokumen relevan dari retriever
     docs = vector_store.as_retriever(search_kwargs={"k": 3}).invoke(question)
     if not docs or all(doc.page_content.strip() == "" for doc in docs):
-        return "Saya tidak memiliki informasi cukup dari dokumen yang diunggah untuk menjawab ini."
+        return "Assistant: Saya tidak memiliki informasi cukup dari dokumen yang diunggah untuk menjawab ini."
     result = rag_chain.invoke({"query": question})
     return result["result"]

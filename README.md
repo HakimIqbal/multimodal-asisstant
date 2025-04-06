@@ -1,0 +1,1 @@
+bagaimana cara agar project saya ini bisa menerima ouput sesuai dengan bahasa input, maksud saya ketika input menggunakan bahasa indonesia maka ouput juga bahasa indonesia dan ketika memakai bahasa inggris output menggunakan bahasa inggris. dan beragam lain bahasa

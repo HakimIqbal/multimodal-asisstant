@@ -11,6 +11,11 @@
 │   │   │   ├── contoh_gambar.png
 │   │   ├── contoh-pdf/   # Sub-folder untuk PDF
 │   │   │   ├── contoh_dokumen.pdf
+│   │   ├── pdf/      # Untuk file PDF
+│   │   ├── docx/     # Untuk file DOCX
+│   │   ├── png/      # Untuk file PNG
+│   │   ├── jpg/      # Untuk file JPG
+│   │   ├── jpeg/     # Untuk file JPEG
 │   ├── embeddings/       # Folder untuk menyimpan vektor embedding
 │   ├── faiss_index/      # Folder penyimpanan FAISS Index
 ├── src/

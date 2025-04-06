@@ -13,6 +13,19 @@ LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT")
 LANGSMITH_TRACING = os.getenv("LANGSMITH_TRACING", "false").lower() == "true"
 LITERALAI_API_KEY = os.getenv("LITERALAI_API_KEY")
 
+# Subfolder berdasarkan format
+SUBFOLDERS = {
+    ".pdf": os.path.join(DOCUMENTS_PATH, "pdf"),
+    ".docx": os.path.join(DOCUMENTS_PATH, "docx"),
+    ".png": os.path.join(DOCUMENTS_PATH, "png"),
+    ".jpg": os.path.join(DOCUMENTS_PATH, "jpg"),
+    ".jpeg": os.path.join(DOCUMENTS_PATH, "jpeg")
+}
+
+# Membuat subfolder jika belum ada
+for folder in SUBFOLDERS.values():
+    os.makedirs(folder, exist_ok=True)
+
 # Pastikan API key tersedia
 if not GROQ_API_KEY:
     raise ValueError("GROQ_API_KEY tidak ditemukan di .env")
