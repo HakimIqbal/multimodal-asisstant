@@ -1,8 +1,13 @@
 from langchain.memory import ConversationBufferMemory
+from langchain_core.chat_history import InMemoryChatMessageHistory
 from models import llm
 from config import LANGSMITH_TRACING
 
-memory = ConversationBufferMemory()
+# Inisialisasi memory dengan format terbaru
+memory = ConversationBufferMemory(
+    chat_memory=InMemoryChatMessageHistory(),
+    return_messages=True
+)
 
 def chat_with_memory(query: str):
     if LANGSMITH_TRACING:

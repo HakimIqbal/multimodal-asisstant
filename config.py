@@ -18,6 +18,8 @@ if not GROQ_API_KEY:
     raise ValueError("GROQ_API_KEY tidak ditemukan di .env")
 if not LANGSMITH_API_KEY and LANGSMITH_TRACING:
     raise ValueError("LANGSMITH_API_KEY tidak ditemukan di .env meskipun tracing diaktifkan")
+if not LITERALAI_API_KEY:
+    print("LITERALAI_API_KEY tidak ditemukan, evaluasi LiteralAI tidak akan aktif.")
 
 # Konfigurasi LangSmith tracing
 if LANGSMITH_TRACING:
