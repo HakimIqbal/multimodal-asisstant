@@ -2,8 +2,8 @@ from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from config import VECTOR_DB_PATH
 
-def load_vector_store(path: str, embedding_model):
-    return FAISS.load_local(path, embedding_model)
+def load_vector_store(path: str, embedding_model, allow_dangerous_deserialization=False):
+    return FAISS.load_local(path, embedding_model, allow_dangerous_deserialization=allow_dangerous_deserialization)
 
 def process_and_store_text(text: str, embedding_model, vector_store):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
