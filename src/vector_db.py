@@ -1,4 +1,4 @@
-from langchain_community.vectorstores import FAISS  # Perbarui impor
+from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from config import VECTOR_DB_PATH
 

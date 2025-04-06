@@ -11,4 +11,5 @@ data-rag/faiss_index/
 fileujicoba-pdf-png-docx-jpeg-jpg/
 src/__pycache__
 src/__init__.py
-api/endpoints/__pycache__
+api/endpoints/__pycache__/
+api/endpoints/__pycache__/ocr.cpython-313.pyc

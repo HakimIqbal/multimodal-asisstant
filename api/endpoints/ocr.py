@@ -12,12 +12,10 @@ router = APIRouter()
 async def upload_file(files: list[UploadFile] = File(...)):
     responses = []
     system_message = (
-        "System: Fitur RAG System + OCR aktif. Saya akan memproses file yang Anda unggah (PDF, DOCX, PNG, JPG, JPEG) "
-        "untuk mengekstrak teks dan menyimpannya ke basis pengetahuan (FAISS). File akan disimpan ke subfolder sesuai formatnya. "
-        "Batasan: Hanya file dengan format tersebut yang didukung saat ini. Assistant akan menjawab pertanyaan Anda hanya "
-        "berdasarkan dokumen yang diunggah."
+        "System: Dokumen yang Anda unggah akan disimpan di subfolder sesuai formatnya dan diindeks ke FAISS. "
+        "Setelah restart API/UI, dokumen ini akan tetap diingat selama file dan indeks FAISS tidak dihapus."
     )
-    print(system_message)  # System menjelaskan peran dan batasan
+    print(system_message)
 
     for file in files:
         _, ext = os.path.splitext(file.filename)
@@ -26,7 +24,7 @@ async def upload_file(files: list[UploadFile] = File(...)):
             responses.append({"filename": file.filename, "text": f"❌ Error: Format '{ext}' tidak didukung."})
             continue
         
-        # Simpan file ke subfolder sesuai format
+        # Simpan file ke subfolder
         file_path = os.path.join(SUBFOLDERS[ext], file.filename)
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, "wb") as buffer:
@@ -34,8 +32,10 @@ async def upload_file(files: list[UploadFile] = File(...)):
         
         # Proses teks dan simpan ke FAISS
         extracted_text = extract_text(file_path)
-        if "Error" not in extracted_text:
+        if "Error" not in extracted_text and extracted_text.strip():
             process_and_store_text(extracted_text, embedding_model, vector_store)
-        responses.append({"filename": file.filename, "text": extracted_text})
+            responses.append({"filename": file.filename, "text": "✅ Dokumen berhasil diproses dan diindeks."})
+        else:
+            responses.append({"filename": file.filename, "text": extracted_text})
     
     return {"status": "success", "results": responses, "system_message": system_message}
