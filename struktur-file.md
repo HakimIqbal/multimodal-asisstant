@@ -18,6 +18,7 @@
 │   │   ├── jpeg/     # Untuk file JPEG
 │   ├── embeddings/       # Folder untuk menyimpan vektor embedding
 │   ├── faiss_index/      # Folder penyimpanan FAISS Index
+│   ├── uploaded_docs.json
 ├── src/
 │   ├── ocr.py            # Modul OCR (Tesseract)
 │   ├── vector_db.py      # Modul FAISS (Vector DB)

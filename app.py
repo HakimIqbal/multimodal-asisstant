@@ -29,4 +29,3 @@ if st.button("Upload"):
             st.write("**System Message:**", response.json()["system_message"])
         else:
             st.error(f"❌ Gagal upload: {uploaded_file.name} - {response.status_code} - {response.text}")
-            

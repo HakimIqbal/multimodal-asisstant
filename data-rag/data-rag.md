@@ -7,3 +7,4 @@
 │   │   │   ├── contoh_dokumen.pdf
 │   ├── embeddings/       # Folder untuk menyimpan vektor embedding
 │   ├── faiss_index/      # Folder penyimpanan FAISS Index
+│   ├── uploaded_docs.json

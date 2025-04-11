@@ -4,7 +4,7 @@ from models import llm, vector_store
 from config import LANGSMITH_TRACING
 
 prompt_template = """System: Saya adalah Assistant yang hanya menjawab berdasarkan dokumen yang diunggah melalui RAG System + OCR. 
-Jika tidak ada dokumen atau informasi yang relevan, saya akan memberitahu Anda.
+Saya tidak akan menggunakan pengetahuan eksternal di luar dokumen tersebut. Jika informasi tidak ada, saya akan memberitahu Anda.
 Context: {context}
 Question: {question}
 Answer:"""
@@ -23,6 +23,6 @@ def query_rag(question: str):
         print(f"Melacak query '{question}' di LangSmith.")
     docs = vector_store.as_retriever(search_kwargs={"k": 3}).invoke(question)
     if not docs or all(doc.page_content.strip() == "" for doc in docs):
-        return "Assistant: Tidak ada dokumen yang diunggah atau informasi relevan ditemukan untuk menjawab pertanyaan ini."
+        return "Assistant: Saya tidak memiliki informasi cukup dari dokumen yang diunggah untuk menjawab ini."
     result = rag_chain.invoke({"query": question})
     return result["result"]

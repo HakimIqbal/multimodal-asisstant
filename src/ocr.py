@@ -5,7 +5,9 @@ import os
 import docx
 import numpy as np
 from typing import Optional
+import logging
 
+logging.getLogger("pdfplumber").setLevel(logging.ERROR)
 pytesseract.pytesseract.tesseract_cmd = "/opt/homebrew/bin/tesseract"
 
 def preprocess_image(image_path: str) -> np.ndarray:

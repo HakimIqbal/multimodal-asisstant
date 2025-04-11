@@ -5,9 +5,9 @@ from src.chat import chat_with_memory
 router = APIRouter()
 
 class ChatRequest(BaseModel):
-    question: str
+    query: str
 
 @router.post("/chat/")
 async def chat(request: ChatRequest):
-    response = chat_with_memory(request.question)
-    return {"question": request.question, "response": response}
+    response = chat_with_memory(request.query)
+    return {"query": request.query, "response": response}
