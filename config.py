@@ -29,6 +29,11 @@ if not GROQ_API_KEY:
     raise ValueError("GROQ_API_KEY tidak ditemukan di .env")
 if not SUPABASE_URL or not SUPABASE_KEY:
     print("System: SUPABASE_URL atau SUPABASE_KEY tidak ditemukan, menggunakan penyimpanan lokal.")
+if not LITERALAI_API_KEY:
+    print("System: LITERALAI_API_KEY tidak ditemukan, evaluasi LiteralAI tidak akan aktif.")
+else:
+    print("System: LiteralAI diaktifkan untuk evaluasi kualitas output LLM.")
+
 if LANGSMITH_TRACING:
     os.environ["LANGSMITH_API_KEY"] = LANGSMITH_API_KEY
     os.environ["LANGSMITH_ENDPOINT"] = LANGSMITH_ENDPOINT

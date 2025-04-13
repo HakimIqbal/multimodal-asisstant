@@ -19,7 +19,8 @@ async def upload_file(files: list[UploadFile] = File(...)):
         "untuk mengekstrak teks dan menyimpannya ke basis pengetahuan (FAISS). "
         "Data akan disimpan di cloud (Supabase) jika tersedia, atau lokal (JSON) jika tidak. "
         "File disimpan ke subfolder sesuai formatnya. "
-        "Batasan: Hanya format tersebut yang didukung saat ini."
+        "Batasan: Hanya format tersebut yang didukung saat ini. "
+        f"{'Evaluasi kualitas jawaban akan dicatat di LiteralAI.' if LITERALAI_API_KEY else ''}"
     )
     print(system_message)
 
