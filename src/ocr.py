@@ -24,11 +24,15 @@ def preprocess_image(image_path: str) -> np.ndarray:
 def extract_text_from_image(image_path: str) -> str:
     if not os.path.exists(image_path):
         return f"❌ Error: File gambar '{image_path}' tidak ditemukan."
-    processed_img = preprocess_image(image_path)
-    if processed_img is None:
+    image = cv2.imread(image_path)
+    if image is None:
         return "❌ Error: Tidak dapat membaca gambar."
+    height, width = image.shape[:2]
+    if height < 100 or width < 100:
+        return "⚠️ Tidak ada teks yang terdeteksi dalam gambar. Gambar memiliki resolusi terlalu rendah."
+    processed_img = preprocess_image(image_path)
     text = pytesseract.image_to_string(processed_img)
-    return text.strip() or "⚠️ Tidak ada teks yang terdeteksi dalam gambar."
+    return text.strip() or "⚠️ Tidak ada teks yang terdeteksi dalam gambar. Coba gunakan gambar dengan teks yang lebih jelas."
 
 def extract_text_from_pdf(pdf_path: str) -> str:
     if not os.path.exists(pdf_path):
