@@ -34,6 +34,7 @@ async def upload_file(files: list[UploadFile] = File(...), skip_duplicates: bool
         file_content = await file.read()
         file_size = len(file_content)
         if file_size > MAX_FILE_SIZE:
+            print(f"System: File '{file.filename}' ({file_size} bytes) melebihi batas {MAX_FILE_SIZE} bytes.")
             responses.append({"filename": file.filename, "text": f"❌ Error: File '{file.filename}' melebihi batas ukuran 10 MB."})
             continue
         file.seek(0)  # Reset pointer
@@ -88,6 +89,7 @@ async def upload_file(files: list[UploadFile] = File(...), skip_duplicates: bool
                         json.dump(local_docs, f, indent=2)
                     print(f"System: {final_filename} tersinkronisasi ke Supabase, dihapus dari JSON lokal.")
                 else:
+                    responses.append({"filename": final_filename, "text": f"⚠️ Gagal menyimpan ke Supabase: {supabase_response.text}"})
                     print(f"System: Gagal menyimpan {final_filename} ke Supabase: {supabase_response.text}")
 
             process_and_store_text(extracted_text, embedding_model, vector_store)
