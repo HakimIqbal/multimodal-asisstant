@@ -1,6 +1,6 @@
 import streamlit as st
 import requests
-from config import SUPABASE_URL, SUPABASE_KEY 
+from config import SUPABASE_URL, SUPABASE_KEY
 
 API_URL = "http://127.0.0.1:8000"
 
@@ -36,7 +36,6 @@ if st.button("Upload"):
                     st.warning(f"⚠️ Untuk {result['filename']}: Coba unggah file dengan kualitas lebih tinggi atau teks yang lebih jelas.")
                 else:
                     st.info(f"📄 File disimpan sebagai: {result['filename']}")
-                # Pengecekan kegagalan Supabase
                 if SUPABASE_URL and SUPABASE_KEY and any("Gagal menyimpan" in r["text"] for r in response.json()["results"]):
                     st.warning("⚠️ Gagal menyimpan ke cloud, data disimpan secara lokal.")
         else:

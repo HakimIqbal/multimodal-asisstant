@@ -4,7 +4,6 @@ streamlit
 langchain
 langchain-community
 langsmith
-literalai
 groq
 faiss-cpu
 sentence-transformers

@@ -1,0 +1,37 @@
+{
+  "generations": [
+    {
+      "id": "704bb967-b772-47a0-b5d6-f36a96d0e9d2",
+      "timestamp": "2025-04-14T04:01:08.090903",
+      "input": "it two operands are true it become true",
+      "output": "Based on the provided document, I can answer that the question refers to the Boolean (logika) data type.\n\nIf two operands are true, the result of the AND operation will be true.",
+      "metadata": {
+        "source": "RAG System + OCR",
+        "model": "llama3-70b-8192",
+        "context_docs": 3
+      }
+    },
+    {
+      "id": "87684d45-0fcc-4a5d-bbcf-045985edbac7",
+      "timestamp": "2025-04-14T04:10:29.699897",
+      "input": "it two operands are true it become true",
+      "output": "Based on the provided document, I can answer that the question is related to Boolean (logika) and the answer is TRUE. If two operands are true, the result of the Boolean operation will be TRUE.",
+      "metadata": {
+        "source": "RAG System + OCR",
+        "model": "llama3-70b-8192",
+        "context_docs": 3
+      }
+    },
+    {
+      "id": "4366ea49-ed56-41f0-abf5-24818a8fdfae",
+      "timestamp": "2025-04-14T04:10:57.946821",
+      "input": "Assigns values from right side operands to left side operand.",
+      "output": "I'm happy to help! However, I noticed that the question \"Assigns values from right side operands to left side operand.\" seems out of context with the provided input and output.\n\nBased on the provided context, I understand that the program is supposed to take two integer inputs and perform some calculation to produce a floating-point output. However, the specific operation to be performed is not clear.\n\nIf I had to answer the question \"Assigns values from right side operands to left side operand.\", I would say that the answer is an assignment operator, which is typically denoted by the \"=\" symbol. But again, this seems unrelated to the original context.\n\nIf you could provide more information or clarify the question, I'd be happy to try and assist you further!",
+      "metadata": {
+        "source": "RAG System + OCR",
+        "model": "llama3-70b-8192",
+        "context_docs": 3
+      }
+    }
+  ]
+}

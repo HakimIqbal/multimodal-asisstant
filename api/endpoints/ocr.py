@@ -1,12 +1,11 @@
 from fastapi import APIRouter, File, UploadFile
 import os
 import json
-import shutil
 import requests
 from src.ocr import extract_text
 from src.vector_db import process_and_store_text
 from models import embedding_model, vector_store
-from config import SUBFOLDERS, SUPABASE_URL, SUPABASE_KEY, DOCUMENTS_PATH, LITERALAI_API_KEY
+from config import SUBFOLDERS, SUPABASE_URL, SUPABASE_KEY, DOCUMENTS_PATH
 from datetime import datetime
 
 router = APIRouter()
@@ -20,8 +19,7 @@ async def upload_file(files: list[UploadFile] = File(...), skip_duplicates: bool
         "untuk mengekstrak teks dan menyimpannya ke basis pengetahuan (FAISS). "
         "Data akan disimpan di cloud (Supabase) jika tersedia, atau lokal (JSON) jika tidak. "
         "File disimpan ke subfolder sesuai formatnya. "
-        "Batasan: Hanya format tersebut yang didukung saat ini (maksimal 10 MB per file). "
-        f"{'Evaluasi kualitas jawaban akan dicatat di LiteralAI.' if LITERALAI_API_KEY else ''}"
+        "Batasan: Hanya format tersebut yang didukung saat ini (maksimal 10 MB per file)."
     )
     print(system_message)
 
@@ -30,7 +28,6 @@ async def upload_file(files: list[UploadFile] = File(...), skip_duplicates: bool
     headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}", "Content-Type": "application/json"} if SUPABASE_KEY else None
 
     for file in files:
-        file_size = 0
         file_content = await file.read()
         file_size = len(file_content)
         if file_size > MAX_FILE_SIZE:
