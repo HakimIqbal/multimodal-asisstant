@@ -18,3 +18,4 @@ langchain-groq
 langchain-huggingface
 watchdog
 python-multipart
+pdf2image

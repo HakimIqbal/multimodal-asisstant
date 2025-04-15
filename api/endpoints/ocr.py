@@ -31,54 +31,91 @@ async def upload_file(files: list[UploadFile] = File(...), skip_duplicates: bool
         file_content = await file.read()
         file_size = len(file_content)
         if file_size > MAX_FILE_SIZE:
-            print(f"System: File '{file.filename}' ({file_size} bytes) melebihi batas {MAX_FILE_SIZE} bytes.")
-            responses.append({"filename": file.filename, "text": f"❌ Error: File '{file.filename}' melebihi batas ukuran 10 MB."})
+            responses.append({"filename": file.filename, "text": f"❌ Error: File '{file.filename}' melebihi batas ukuran 10 MB.", "status": "error"})
             continue
-        file.seek(0)  # Reset pointer
 
         _, ext = os.path.splitext(file.filename)
         ext = ext.lower()
         if ext not in SUBFOLDERS:
-            responses.append({"filename": file.filename, "text": f"❌ Error: Format '{ext}' tidak didukung."})
+            responses.append({"filename": file.filename, "text": f"❌ Error: Format '{ext}' tidak didukung.", "status": "error"})
             continue
 
-        file_path = os.path.join(SUBFOLDERS[ext], file.filename)
         final_filename = file.filename
+        file_path = os.path.join(SUBFOLDERS[ext], final_filename)
 
-        if os.path.exists(file_path):
-            if skip_duplicates:
-                responses.append({"filename": file.filename, "text": f"⚠️ File '{file.filename}' dilewati karena sudah ada."})
+        # Cek duplikat di lokal (file dan JSON) dan Supabase
+        is_duplicate = False
+        if skip_duplicates:
+            # Cek di sistem file
+            if os.path.exists(file_path):
+                is_duplicate = True
+            # Cek di uploaded_docs.json
+            if any(doc["filename"] == final_filename for doc in local_docs):
+                is_duplicate = True
+            # Cek di Supabase
+            if SUPABASE_URL and SUPABASE_KEY:
+                try:
+                    response = requests.get(
+                        f"{SUPABASE_URL}/rest/v1/uploaded_documents?filename=eq.{final_filename}",
+                        headers=headers
+                    )
+                    if response.status_code == 200 and response.json():
+                        is_duplicate = True
+                except Exception as e:
+                    print(f"System: Gagal memeriksa duplikat di Supabase: {str(e)}")
+
+            if is_duplicate:
+                responses.append({"filename": final_filename, "text": f"⚠️ File '{final_filename}' dilewati karena sudah ada.", "status": "skipped"})
                 continue
+
+        # Tangani duplikat di sistem file jika skip_duplicates=False
+        if os.path.exists(file_path) and not skip_duplicates:
             base, ext = os.path.splitext(file.filename)
-            file_path = os.path.join(SUBFOLDERS[ext], f"{base}-copy{ext}")
-            final_filename = f"{base}-copy{ext}"
             counter = 1
             while os.path.exists(file_path):
-                file_path = os.path.join(SUBFOLDERS[ext], f"{base}-copy-{counter}{ext}")
-                final_filename = f"{base}-copy-{counter}{ext}"
+                final_filename = f"{base}-{counter}{ext}"
+                file_path = os.path.join(SUBFOLDERS[ext], final_filename)
                 counter += 1
+            # Cek apakah final_filename sudah ada di Supabase
+            if SUPABASE_URL and SUPABASE_KEY:
+                try:
+                    response = requests.get(
+                        f"{SUPABASE_URL}/rest/v1/uploaded_documents?filename=eq.{final_filename}",
+                        headers=headers
+                    )
+                    if response.status_code == 200 and response.json():
+                        responses.append({"filename": final_filename, "text": f"⚠️ File '{final_filename}' sudah ada di Supabase.", "status": "skipped"})
+                        continue
+                except Exception as e:
+                    print(f"System: Gagal memeriksa duplikat di Supabase: {str(e)}")
 
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, "wb") as buffer:
             buffer.write(file_content)
 
         extracted_text = extract_text(file_path)
-        if "Error" not in extracted_text:
-            local_docs.append({
-                "filename": final_filename,
-                "file_format": ext,
-                "uploaded_at": datetime.utcnow().isoformat()
-            })
-            with open(json_path, "w") as f:
-                json.dump(local_docs, f, indent=2)
+        if extracted_text.startswith("❌ Error"):
+            responses.append({"filename": final_filename, "text": extracted_text, "status": "error"})
+            continue
 
-            if SUPABASE_URL and SUPABASE_KEY:
-                data = {
-                    "filename": final_filename,
-                    "file_format": ext,
-                    "uploaded_at": datetime.utcnow().isoformat(),
-                    "text_content": extracted_text
-                }
+        # Simpan metadata lokal
+        local_docs.append({
+            "filename": final_filename,
+            "file_format": ext,
+            "uploaded_at": datetime.utcnow().isoformat()
+        })
+        with open(json_path, "w") as f:
+            json.dump(local_docs, f, indent=2)
+
+        # Simpan ke Supabase
+        if SUPABASE_URL and SUPABASE_KEY:
+            data = {
+                "filename": final_filename[:255],
+                "file_format": ext[:20],
+                "uploaded_at": datetime.utcnow().isoformat(),
+                "text_content": extracted_text
+            }
+            try:
                 supabase_response = requests.post(f"{SUPABASE_URL}/rest/v1/uploaded_documents", json=data, headers=headers)
                 if supabase_response.status_code == 201:
                     local_docs = [doc for doc in local_docs if doc["filename"] != final_filename]
@@ -86,11 +123,19 @@ async def upload_file(files: list[UploadFile] = File(...), skip_duplicates: bool
                         json.dump(local_docs, f, indent=2)
                     print(f"System: {final_filename} tersinkronisasi ke Supabase, dihapus dari JSON lokal.")
                 else:
-                    responses.append({"filename": final_filename, "text": f"⚠️ Gagal menyimpan ke Supabase: {supabase_response.text}"})
-                    print(f"System: Gagal menyimpan {final_filename} ke Supabase: {supabase_response.text}")
+                    print(f"System: Gagal menyimpan {final_filename} ke Supabase: {supabase_response.status_code} - {supabase_response.text}")
+                    responses.append({"filename": final_filename, "text": f"⚠️ Gagal menyimpan ke Supabase: {supabase_response.text}", "status": "warning"})
+            except Exception as e:
+                print(f"System: Error saat menyimpan {final_filename} ke Supabase: {str(e)}")
+                responses.append({"filename": final_filename, "text": f"⚠️ Gagal menyimpan ke Supabase: {str(e)}", "status": "warning"})
 
-            process_and_store_text(extracted_text, embedding_model, vector_store)
-
-        responses.append({"filename": final_filename, "text": extracted_text})
+        # Simpan teks ke FAISS
+        process_and_store_text(extracted_text, embedding_model, vector_store)
+        responses.append({
+            "filename": final_filename,
+            "text": "Teks berhasil diekstrak dan disimpan.",
+            "status": "success",
+            "preview": extracted_text[:100] + ("..." if len(extracted_text) > 100 else "")
+        })
 
     return {"status": "success", "results": responses, "system_message": system_message}

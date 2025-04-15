@@ -4,12 +4,13 @@ import uuid
 from datetime import datetime
 from json.decoder import JSONDecodeError
 from pathlib import Path
+import requests
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain.callbacks.manager import CallbackManager
 from langsmith import Client
 from models import llm, vector_store
-from config import LANGSMITH_TRACING
+from config import LANGSMITH_TRACING, SUPABASE_URL, SUPABASE_KEY
 
 prompt_template = """System: Anda adalah Assistant yang HANYA menjawab berdasarkan dokumen yang diunggah melalui RAG System + OCR. 
 Anda DILARANG menggunakan pengetahuan eksternal atau memberikan jawaban spekulatif di luar dokumen. 
@@ -48,10 +49,14 @@ def query_rag(question: str):
 
     # Logging manual untuk Generation
     log_dir = Path("data-rag/logs")
-    log_file = log_dir / "generations.json"
+    archive_dir = log_dir / "archive"
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    log_file = log_dir / f"generations-{today}.json"
     
     try:
         log_dir.mkdir(parents=True, exist_ok=True)
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        
         # Inisialisasi log_data
         log_data = {"generations": []}
         if log_file.exists():
@@ -81,10 +86,36 @@ def query_rag(question: str):
         }
         log_data["generations"].append(log_entry)
         
-        # Simpan kembali ke file
+        # Simpan ke file
         with log_file.open("w", encoding="utf-8") as f:
             json.dump(log_data, f, indent=2)
         print(f"System: Generation untuk query '{question}' dicatat di {log_file}.")
+        
+        # Cek ukuran file (opsional, arsip jika > 10 MB)
+        if log_file.stat().st_size > 10 * 1024 * 1024:
+            archive_path = archive_dir / f"generations-{today}.json"
+            log_file.rename(archive_path)
+            print(f"System: File {log_file} diarsipkan ke {archive_path} karena melebihi 10 MB.")
+            log_data = {"generations": []}
+            with log_file.open("w", encoding="utf-8") as f:
+                json.dump(log_data, f, indent=2)
+        
+        # Sync ke Supabase
+        if SUPABASE_URL and SUPABASE_KEY:
+            headers = {
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json"
+            }
+            try:
+                response = requests.post(f"{SUPABASE_URL}/rest/v1/generations", json=log_entry, headers=headers)
+                if response.status_code == 201:
+                    print(f"System: Generation untuk query '{question}' tersinkronisasi ke Supabase.")
+                else:
+                    print(f"System: Gagal menyimpan generation ke Supabase: {response.status_code} - {response.text}")
+            except Exception as e:
+                print(f"System: Error saat menyimpan generation ke Supabase: {str(e)}")
+                
     except Exception as e:
         print(f"System: Gagal mencatat generation: {str(e)}.")
     

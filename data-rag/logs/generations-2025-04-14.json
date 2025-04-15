@@ -1,0 +1,81 @@
+{
+  "generations": [
+    {
+      "id": "cd09a58d-5b4e-43e6-a2df-0bfa78158af0",
+      "timestamp": "2025-04-14T07:30:03.205881",
+      "input": "Apa itu python?",
+      "output": "Python adalah bahasa pemrograman high-level yang sangat powerful, sintaksnya sederhana dan mudah dipelajari, juga memiliki performa yang bagus.",
+      "metadata": {
+        "source": "RAG System + OCR",
+        "model": "llama3-70b-8192",
+        "context_docs": 3
+      }
+    },
+    {
+      "id": "a0e6bf7e-a400-4b81-a37b-e4e7511895e7",
+      "timestamp": "2025-04-14T07:30:52.592443",
+      "input": "Siapa author?",
+      "output": "Saya tidak memiliki informasi cukup dari dokumen yang diunggah untuk menjawab ini.",
+      "metadata": {
+        "source": "RAG System + OCR",
+        "model": "llama3-70b-8192",
+        "context_docs": 3
+      }
+    },
+    {
+      "id": "628e6b8b-f3b3-4686-8cfc-4d75e2e48b4c",
+      "timestamp": "2025-04-14T07:31:49.398853",
+      "input": "Editor dan IDE untuk development menggunakan Python?",
+      "output": "Editor/IDE untuk development menggunakan Python diantaranya:\n\n\u2022 Eclipse, dengan tambahan plugin PyDev\n\u2022 GNU Emacs\n\u2022 JetBrains PyCharm\n\u2022 Spyder\n\u2022 Sublime Text, dengan tambahan package Python\n\u2022 Vim\n\u2022 Visual Studio\n\u2022 Visual Studio Code (VSCode), dengan tambahan extension Python dan Jupyter\n\u2022 Python standard shell (REPL)",
+      "metadata": {
+        "source": "RAG System + OCR",
+        "model": "llama3-70b-8192",
+        "context_docs": 3
+      }
+    },
+    {
+      "id": "c0d1e20b-8def-4720-819d-8d83b2cc5132",
+      "timestamp": "2025-04-14T07:38:03.156071",
+      "input": "Siapa author dasarpemrogramanpython.pdf?",
+      "output": "Assistant: Saya tidak memiliki informasi cukup dari dokumen yang diunggah untuk menjawab ini.",
+      "metadata": {
+        "source": "RAG System + OCR",
+        "model": "llama3-70b-8192",
+        "context_docs": 3
+      }
+    },
+    {
+      "id": "130d952e-5dae-4f20-b873-1d6af57170f5",
+      "timestamp": "2025-04-14T07:39:15.134367",
+      "input": "Python Komentar adalah",
+      "output": "Assistant: Saya tidak memiliki informasi cukup dari dokumen yang diunggah untuk menjawab ini.",
+      "metadata": {
+        "source": "RAG System + OCR",
+        "model": "llama3-70b-8192",
+        "context_docs": 3
+      }
+    },
+    {
+      "id": "dcff0c15-215e-4ec2-af96-f62641df7be6",
+      "timestamp": "2025-04-14T07:39:30.218373",
+      "input": "Komentar adalah",
+      "output": "Komentar adalah suatu pernyataan yang tidak dieksekusi oleh kompiler dan hanya berfungsi sebagai catatan untuk programmer.",
+      "metadata": {
+        "source": "RAG System + OCR",
+        "model": "llama3-70b-8192",
+        "context_docs": 3
+      }
+    },
+    {
+      "id": "9fcb5334-ed03-4173-8961-7bb98a5e71a0",
+      "timestamp": "2025-04-14T07:40:20.466028",
+      "input": "Apa itu flowchart?",
+      "output": "Flowchart adalah suatu diagram yang menampilkan alur prosedur suatu sistem atau proses.",
+      "metadata": {
+        "source": "RAG System + OCR",
+        "model": "llama3-70b-8192",
+        "context_docs": 3
+      }
+    }
+  ]
+}

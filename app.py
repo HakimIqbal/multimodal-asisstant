@@ -28,15 +28,15 @@ if st.button("Upload"):
             st.success(f"✅ Berhasil mengupload: {uploaded_file.name}")
             st.write("**System Message:**", response.json()["system_message"])
             for result in response.json()["results"]:
-                if "Error" in result["text"]:
+                if result["status"] == "error":
                     st.error(f"❌ Gagal memproses {result['filename']}: {result['text']}")
-                elif "dilewati karena sudah ada" in result["text"]:
+                elif result["status"] == "skipped":
                     st.warning(f"⚠️ {result['text']}")
-                elif "Tidak ada teks yang terdeteksi" in result["text"]:
-                    st.warning(f"⚠️ Untuk {result['filename']}: Coba unggah file dengan kualitas lebih tinggi atau teks yang lebih jelas.")
+                elif result["status"] == "warning":
+                    st.warning(f"⚠️ {result['text']}")
                 else:
-                    st.info(f"📄 File disimpan sebagai: {result['filename']}")
-                if SUPABASE_URL and SUPABASE_KEY and any("Gagal menyimpan" in r["text"] for r in response.json()["results"]):
-                    st.warning("⚠️ Gagal menyimpan ke cloud, data disimpan secara lokal.")
+                    st.info(f"📄 File {result['filename']}: {result['text']}")
+                    if "preview" in result:
+                        st.write(f"**Pratinjau Teks (100 karakter pertama):** {result['preview']}")
         else:
             st.error(f"❌ Gagal upload: {uploaded_file.name} - {response.status_code} - {response.text}")
