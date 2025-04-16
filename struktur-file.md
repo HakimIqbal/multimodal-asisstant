@@ -6,28 +6,30 @@
 ├── requirements.txt      # Dependencies
 ├── data-rag/
 │   ├── documents/        # Folder untuk menyimpan dokumen mentah
-│   │   ├── contoh-docs/  # Sub-folder untuk dokumen teks
-│   │   ├── contoh-gambar/ # Sub-folder untuk gambar
-│   │   │   ├── contoh_gambar.png
-│   │   ├── contoh-pdf/   # Sub-folder untuk PDF
-│   │   │   ├── contoh_dokumen.pdf
 │   │   ├── pdf/      # Untuk file PDF
 │   │   ├── docx/     # Untuk file DOCX
 │   │   ├── png/      # Untuk file PNG
 │   │   ├── jpg/      # Untuk file JPG
-│   │   ├── jpeg/     # Untuk file JPEG
+│   │   └── jpeg/     # Untuk file JPEG
 │   ├── embeddings/       # Folder untuk menyimpan vektor embedding
 │   ├── faiss_index/      # Folder penyimpanan FAISS Index
-│   ├── uploaded_docs.json
+│   │   ├──index.faiss
+│   │   └──index.pkl
+│   ├── logs/
+│   │   └── archive/
+│   │       ├──generations-2025-04-14.json
+│   │       └──enerations-2025-04-14.json
+│   └── uploaded_docs.json
 ├── src/
 │   ├── ocr.py            # Modul OCR (Tesseract)
 │   ├── vector_db.py      # Modul FAISS (Vector DB)
 │   ├── rag.py            # Modul RAG (Query & Retrieval)
-│   ├── chat.py           # Modul Chatbot (Groq API)
+│   └── chat.py           # Modul Chatbot (Groq API)
 ├── api/
 │   ├── server.py         # API menggunakan FastAPI
-│   ├── endpoints/        # Folder untuk endpoint API
-│   │   ├── chat.py       # Endpoint untuk chat
-│   │   ├── rag.py        # Endpoint untuk retrieval
-│   │   ├── ocr.py        # Endpoint untuk OCR
-├── .env                  # Variabel lingkungan (API keys, path, dll.)
+│   └── endpoints/        # Folder untuk endpoint API
+│       ├── chat.py       # Endpoint untuk chat
+│       ├── rag.py        # Endpoint untuk retrieval
+│       └── ocr.py        # Endpoint untuk OCR
+├── .env                  # Variabel lingkungan (API keys, path, dll.) 
+└── requirements.txt
