@@ -1,0 +1,81 @@
+{
+  "generations": [
+    {
+      "id": "414a4929-0caf-43c9-b7b1-1acbd1607d55",
+      "timestamp": "2025-04-20T16:32:16.620921",
+      "input": "apa itu flowchart?",
+      "output": "Flowchart adalah suatu diagram yang menampilkan alur prosedur suatu sistem atau proses.",
+      "metadata": {
+        "source": "RAG System + OCR",
+        "model": "llama3-70b-8192",
+        "context_docs": 3
+      }
+    },
+    {
+      "id": "66f0f818-7aa0-42d0-a408-8a7c3d2dd992",
+      "timestamp": "2025-04-20T16:59:21.497129",
+      "input": "python adalah",
+      "output": "Assistant: Saya tidak memiliki informasi cukup dari dokumen yang diunggah untuk menjawab ini.",
+      "metadata": {
+        "source": "RAG System + OCR",
+        "model": "llama3-70b-8192",
+        "context_docs": 3
+      }
+    },
+    {
+      "id": "c3e80497-2c98-40f3-a38a-34703d96af42",
+      "timestamp": "2025-04-20T16:59:33.238022",
+      "input": "flowchart adalah?",
+      "output": "Flowchart adalah flowchart yang menampilkan tahapan atau proses kerja yang sedang berlangsung.",
+      "metadata": {
+        "source": "RAG System + OCR",
+        "model": "llama3-70b-8192",
+        "context_docs": 3
+      }
+    },
+    {
+      "id": "6ca08594-5ae4-4b9e-bccb-9355adc21112",
+      "timestamp": "2025-04-20T16:59:41.909925",
+      "input": "python adalah",
+      "output": "Assistant: Saya tidak memiliki informasi cukup dari dokumen yang diunggah untuk menjawab ini.",
+      "metadata": {
+        "source": "RAG System + OCR",
+        "model": "llama3-70b-8192",
+        "context_docs": 3
+      }
+    },
+    {
+      "id": "758890b6-b74c-4c0b-be3b-c641d3788ce6",
+      "timestamp": "2025-04-20T17:00:11.004134",
+      "input": "Python adalah",
+      "output": "Assistant: Saya tidak memiliki informasi cukup dari dokumen yang diunggah untuk menjawab ini.",
+      "metadata": {
+        "source": "RAG System + OCR",
+        "model": "llama3-70b-8192",
+        "context_docs": 3
+      }
+    },
+    {
+      "id": "b4f6d9e0-aaf3-4c73-a7ee-e18b3dc5617a",
+      "timestamp": "2025-04-20T17:00:42.751557",
+      "input": "Python List",
+      "output": "List comprehension adalah metode ringkas pembuatan list (selain menggunakan literal [] atau menggunakan fungsi list() ). Cara ini lebih banyak diterapkan untuk operasi list yang menghasilkan struktur baru.",
+      "metadata": {
+        "source": "RAG System + OCR",
+        "model": "llama3-70b-8192",
+        "context_docs": 3
+      }
+    },
+    {
+      "id": "a8014727-24f7-437f-8ba5-804548cd4d74",
+      "timestamp": "2025-04-20T17:00:56.497496",
+      "input": "List adalah",
+      "output": "List adalah tipe data kolektif yang disimpan secara urut dan bisa diubah nilainya (istilah lainnya adalah tipe data sequence).",
+      "metadata": {
+        "source": "RAG System + OCR",
+        "model": "llama3-70b-8192",
+        "context_docs": 3
+      }
+    }
+  ]
+}
