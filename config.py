@@ -1,5 +1,5 @@
-from dotenv import load_dotenv
 import os
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -30,10 +30,10 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     print("System: SUPABASE_URL atau SUPABASE_KEY tidak ditemukan, menggunakan penyimpanan lokal.")
 
 if LANGSMITH_TRACING:
-    os.environ["LANGSMITH_API_KEY"] = LANGSMITH_API_KEY
-    os.environ["LANGSMITH_ENDPOINT"] = LANGSMITH_ENDPOINT
-    os.environ["LANGSMITH_PROJECT"] = LANGSMITH_PROJECT
     os.environ["LANGCHAIN_TRACING_V2"] = "true"
+    os.environ["LANGCHAIN_API_KEY"] = LANGSMITH_API_KEY
+    os.environ["LANGCHAIN_ENDPOINT"] = LANGSMITH_ENDPOINT
+    os.environ["LANGCHAIN_PROJECT"] = LANGSMITH_PROJECT
     print("System: LangSmith tracing diaktifkan.")
 else:
     print("System: LangSmith tracing tidak diaktifkan.")

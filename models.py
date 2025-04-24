@@ -10,8 +10,30 @@ from src.vector_db import load_vector_store, process_and_store_text
 from src.ocr import extract_text
 from config import GROQ_API_KEY, VECTOR_DB_PATH, LANGSMITH_TRACING, SUPABASE_URL, SUPABASE_KEY, DOCUMENTS_PATH
 
+# Inisialisasi embedding model tanpa PyTorch jika memungkinkan
 embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-llm = ChatGroq(groq_api_key=GROQ_API_KEY, model_name="llama3-70b-8192", temperature=0.0, max_tokens=4096)
+
+# Daftar model Groq yang didukung
+SUPPORTED_GROQ_MODELS = [
+    "llama3-70b-8192",
+    "llama3-8b-8192",
+    "mixtral-8x7b-32768",
+    "gemma-7b-it",
+]
+
+def get_groq_model(model_name: str = "llama3-70b-8192"):
+    if model_name not in SUPPORTED_GROQ_MODELS:
+        print(f"System: Model '{model_name}' tidak didukung. Menggunakan default 'llama3-70b-8192'.")
+        model_name = "llama3-70b-8192"
+    return ChatGroq(
+        groq_api_key=GROQ_API_KEY,
+        model_name=model_name,
+        temperature=0.0,
+        max_tokens=4096
+    )
+
+# Inisialisasi model default
+llm = get_groq_model()
 
 try:
     vector_store = load_vector_store(VECTOR_DB_PATH, embedding_model)
