@@ -1,35 +1,40 @@
 /multimodal-assistant/
-├── main.py               # Entry point utama (Menjalankan API & UI)
-├── models.py             # Modul untuk inisialisasi model dan koneksi ke Groq
-├── app.py                # UI dengan Streamlit
-├── config.py             # Konfigurasi global (path, API keys dari .env)
-├── requirements.txt      # Dependencies
+├── main.py
+├── models.py
+├── app.py
+├── config.py
+├── requirements.txt
 ├── data-rag/
-│   ├── documents/        # Folder untuk menyimpan dokumen mentah
-│   │   ├── pdf/      # Untuk file PDF
-│   │   ├── docx/     # Untuk file DOCX
-│   │   ├── png/      # Untuk file PNG
-│   │   ├── jpg/      # Untuk file JPG
-│   │   └── jpeg/     # Untuk file JPEG
-│   ├── embeddings/       # Folder untuk menyimpan vektor embedding
-│   ├── faiss_index/      # Folder penyimpanan FAISS Index
-│   │   ├──index.faiss
-│   │   └──index.pkl
-│   ├── logs/
-│   │   └── archive/
-│   │       ├──generations-2025-04-14.json
-│   │       └──enerations-2025-04-14.json
-│   └── uploaded_docs.json
+│   ├── documents/
+│   │   ├── pdf/
+│   │   ├── doc/
+│   │   ├── docx/
+│   │   ├── odt/
+│   │   ├── txt/
+│   ├── faiss_index/
+│   │   ├── index.faiss
+│   │   └── index.pkl
+│   └── logs/
+│       └── archive/
+├── data-ocr/
+│   └── logs/
+│       └── archive/
 ├── src/
-│   ├── ocr.py            # Modul OCR (Tesseract)
-│   ├── vector_db.py      # Modul FAISS (Vector DB)
-│   ├── rag.py            # Modul RAG (Query & Retrieval)
-│   └── chat.py           # Modul Chatbot (Groq API)
+│   ├── __init__.py
+│   ├── ocr.py
+│   ├── rag.py
+│   ├── vector_db.py
+│   ├── chat.py
+│   ├── coder.py
+│   ├── db.py
+│   ├── document_processor.py
 ├── api/
-│   ├── server.py         # API menggunakan FastAPI
-│   └── endpoints/        # Folder untuk endpoint API
-│       ├── chat.py       # Endpoint untuk chat
-│       ├── rag.py        # Endpoint untuk retrieval
-│       └── ocr.py        # Endpoint untuk OCR
-├── .env                  # Variabel lingkungan (API keys, path, dll.) 
-└── requirements.txt
+│   ├── server.py
+│   └── endpoints/
+│       ├── chat.py
+│       ├── coder.py
+│       ├── rag.py
+│       ├── ocr.py
+├── migrations/
+│   ├── init.sql
+├── .env

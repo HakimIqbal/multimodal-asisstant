@@ -2,21 +2,25 @@ import json
 import os
 import uuid
 from datetime import datetime
-from json.decoder import JSONDecodeError
 from pathlib import Path
-import requests
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from models import get_groq_model
-from config import LANGSMITH_TRACING, SUPABASE_URL, SUPABASE_KEY
+from config import LANGSMITH_TRACING
+from src.db import log_to_mysql
 
-# Inisialisasi ChatMessageHistory secara langsung
+
 chat_history_store = ChatMessageHistory()
 
-# Template prompt dengan instruksi yang lebih spesifik
 prompt_template = ChatPromptTemplate.from_messages([
-    ("system", "System: Anda adalah asisten AI yang memberikan jawaban singkat, langsung ke inti, dan terstruktur. Gunakan Markdown untuk formatting (misalnya, **bold**, *italic*, atau ``` untuk blok kode). Jangan ulangi pertanyaan atau berikan informasi yang tidak relevan. Jawab dengan bahasa yang sama seperti input pengguna (misalnya, jika input dalam bahasa Indonesia, jawab dalam bahasa Indonesia; jika dalam bahasa Inggris, jawab dalam bahasa Inggris). Jika jawaban panjang, gunakan poin-poin untuk memudahkan pembacaan."),
+    ("system", """
+    System: Anda adalah asisten AI untuk pertanyaan umum. Jawab singkat, langsung ke inti, dan gunakan Markdown.
+    - HANYA jawab pertanyaan umum (misalnya, definisi, fakta sederhana).
+    - Jika pertanyaan terkait coding (misalnya, membuat kode, debugging), jawab: "Gunakan fitur Coder Chat untuk pertanyaan coding."
+    - Jika pertanyaan memerlukan dokumen, jawab: "Gunakan fitur RAG System untuk pertanyaan berbasis dokumen."
+    - Jika pertanyaan memerlukan OCR, jawab: "Gunakan fitur OCR untuk mengekstrak teks dari gambar."
+    - Gunakan bahasa yang sama dengan input pengguna.
+    """),
     MessagesPlaceholder(variable_name="chat_history"),
     ("human", "{query}")
 ])
@@ -28,109 +32,49 @@ def detect_language(query: str) -> str:
         return "id"
     return "en"
 
+def detect_coding_query(query: str) -> bool:
+    coding_keywords = {"kode", "code", "program", "fungsi", "function", "debug", "error", "script", "buatkan", "generate", "perbaiki"}
+    query_lower = query.lower()
+    return any(keyword in query_lower for keyword in coding_keywords)
+
 def chat_general(query: str, model_name: str = "llama3-70b-8192"):
     if LANGSMITH_TRACING:
         print(f"System: Melacak chat query '{query}' di LangSmith.")
     
-    # Tahap 1: Pemahaman Pertanyaan
-    print(f"System: Memahami pertanyaan: {query}")
     language = detect_language(query)
     print(f"System: Bahasa terdeteksi: {language}")
 
-    # Tahap 2: Pencarian Informasi (opsional)
+    if detect_coding_query(query):
+        answer = "Gunakan fitur Coder Chat untuk pertanyaan coding."
+    else:
 
-    # Tahap 3: Pengolahan dan Penalaran
-    print(f"System: Memproses dan menalar jawaban untuk: {query}")
-    llm = get_groq_model(model_name)
-    
-    # Ambil riwayat percakapan
-    chat_history = chat_history_store.messages
-    
-    # Gabungkan prompt dengan riwayat dan query
-    prompt = prompt_template.format_messages(query=query, chat_history=chat_history)
-    
-    # Tahap 4: Penyusunan Jawaban
-    response = llm.invoke(prompt)
-    answer = response.content.strip()  # Bersihkan spasi berlebih
+        llm = get_groq_model(model_name)
+        chat_history = chat_history_store.messages
+        prompt = prompt_template.format_messages(query=query, chat_history=chat_history)
+        response = llm.invoke(prompt)
+        answer = response.content.strip()
 
-    # Tahap 5: Post-Processing (opsional)
-    # Jika jawaban terlalu panjang tanpa formatting, kita bisa memformat ulang (opsional)
-    if len(answer.split()) > 50 and "\n" not in answer:
-        answer = "\n".join([answer[i:i+100] for i in range(0, len(answer), 100)])
 
-    # Simpan ke riwayat
-    chat_history_store.add_user_message(query)
-    chat_history_store.add_ai_message(answer)
+        if len(answer.split()) > 50 and "\n" not in answer:
+            answer = "\n".join([answer[i:i+100] for i in range(0, len(answer), 100)])
 
-    # Tahap 6: Pemeriksaan Konteks
-    print(f"System: Memeriksa konteks jawaban untuk: {query}")
 
-    # Tahap 7: Penyampaian
-    log_dir = Path("data-rag/logs")
-    archive_dir = log_dir / "archive"
-    today = datetime.utcnow().strftime("%Y-%m-%d")
-    log_file = log_dir / f"general_chat-{today}.json"
-    
-    try:
-        log_dir.mkdir(parents=True, exist_ok=True)
-        archive_dir.mkdir(parents=True, exist_ok=True)
-        
-        log_data = {"generations": []}
-        if log_file.exists():
-            with log_file.open("r", encoding="utf-8") as f:
-                file_content = f.read().strip()
-                if file_content:
-                    try:
-                        log_data = json.loads(file_content)
-                        if not isinstance(log_data.get("generations"), list):
-                            print(f"System: Struktur {log_file} tidak valid, menginisialisasi ulang.")
-                            log_data = {"generations": []}
-                    except JSONDecodeError:
-                        print(f"System: File {log_file} tidak valid, menginisialisasi ulang.")
-                        log_data = {"generations": []}
-        
-        log_entry = {
-            "id": str(uuid.uuid4()),
-            "timestamp": datetime.utcnow().isoformat(),
-            "input": query,
-            "output": answer,
-            "metadata": {
-                "source": "General Chatbot",
-                "model": model_name,
-                "context": "General",
-                "language": language
-            }
+        chat_history_store.add_user_message(query)
+        chat_history_store.add_ai_message(answer)
+
+
+    log_entry = {
+        "id": str(uuid.uuid4()),
+        "timestamp": datetime.utcnow().isoformat(),
+        "input": query,
+        "output": answer,
+        "metadata": {
+            "source": "General Chatbot",
+            "model": model_name,
+            "context": "General",
+            "language": language
         }
-        log_data["generations"].append(log_entry)
-        
-        with log_file.open("w", encoding="utf-8") as f:
-            json.dump(log_data, f, indent=2)
-        print(f"System: Chat untuk query '{query}' dicatat di {log_file}.")
-        
-        if log_file.stat().st_size > 10 * 1024 * 1024:
-            archive_path = archive_dir / f"general_chat-{today}.json"
-            log_file.rename(archive_path)
-            print(f"System: File {log_file} diarsipkan ke {archive_path} karena melebihi 10 MB.")
-            log_data = {"generations": []}
-            with log_file.open("w", encoding="utf-8") as f:
-                json.dump(log_data, f, indent=2)
-        
-        if SUPABASE_URL and SUPABASE_KEY:
-            headers = {
-                "apikey": SUPABASE_KEY,
-                "Authorization": f"Bearer {SUPABASE_KEY}",
-                "Content-Type": "application/json"
-            }
-            try:
-                response = requests.post(f"{SUPABASE_URL}/rest/v1/general_chat_logs", json=log_entry, headers=headers)
-                if response.status_code == 201:
-                    print(f"System: Chat untuk query '{query}' tersinkronisasi ke Supabase (general_chat_logs).")
-                else:
-                    print(f"System: Gagal menyimpan chat ke Supabase: {response.status_code} - {response.text}")
-            except Exception as e:
-                print(f"System: Error saat menyimpan chat ke Supabase: {str(e)}")
-                
-    except Exception as e:
-        print(f"System: Gagal mencatat chat: {str(e)}.")
+    }
+    log_to_mysql("general_logs", log_entry)
     
     return answer

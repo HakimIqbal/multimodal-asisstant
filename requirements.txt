@@ -19,5 +19,13 @@ langchain-huggingface
 watchdog
 python-multipart
 pdf2image
-onnx 
+onnx
 onnxruntime
+mysql-connector-python
+python-magic
+odfpy
+torch==2.4.0
+pillow
+gtts
+pyttsx3
+pypandoc

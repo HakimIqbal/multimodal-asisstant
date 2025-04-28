@@ -13,3 +13,6 @@ src/__pycache__
 src/__init__.py
 api/endpoints/__pycache__/
 g.txt
+data-rag/logs/archive/*
+data-rag/struktur-data-rag.md.md
+test_pdf2image.py
