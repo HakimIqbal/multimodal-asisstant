@@ -54,29 +54,6 @@ def extract_text_from_docx(docx_path: str) -> str:
 def extract_text_from_doc(doc_path: str) -> str:
     return extract_text_from_docx(doc_path)  # Asumsi .doc sama dengan .docx
 
-def extract_text_from_odt(odt_path: str) -> str:
-    if not os.path.exists(odt_path):
-        return f"❌ Error: File ODT '{odt_path}' tidak ditemukan."
-    try:
-        doc = load(odt_path)
-        text_content = []
-        for element in doc.getElementsByType(text.P):
-            text_content.append(teletype.extractText(element))
-        text = "\n".join(text_content)
-        return text.strip() or ""
-    except Exception as e:
-        return f"❌ Error: Gagal mengekstrak teks dari ODT: {str(e)}"
-
-def extract_text_from_txt(txt_path: str) -> str:
-    if not os.path.exists(txt_path):
-        return f"❌ Error: File TXT '{txt_path}' tidak ditemukan."
-    try:
-        with open(txt_path, "r", encoding="utf-8") as f:
-            text = f.read()
-        return text.strip() or ""
-    except Exception as e:
-        return f"❌ Error: Gagal mengekstrak teks dari TXT: {str(e)}"
-
 def extract_text(file_path: str) -> str:
     _, ext = os.path.splitext(file_path)
     ext = ext.lower()
@@ -84,9 +61,5 @@ def extract_text(file_path: str) -> str:
         return extract_text_from_pdf(file_path)
     elif ext in [".doc", ".docx"]:
         return extract_text_from_docx(file_path)
-    elif ext == ".odt":
-        return extract_text_from_odt(file_path)
-    elif ext == ".txt":
-        return extract_text_from_txt(file_path)
     else:
         return f"❌ Error: Format file '{ext}' tidak didukung."

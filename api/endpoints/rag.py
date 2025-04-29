@@ -47,7 +47,7 @@ async def upload_files(files: List[UploadFile], skip_duplicates: bool = False):
     MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
     results = []
     system_message = (
-        "System: Fitur RAG System aktif. Saya akan memproses file dokumen (DOC, DOCX, PDF, ODT, TXT) "
+        "System: Fitur RAG System aktif. Saya akan memproses file dokumen (DOC, DOCX, PDF) "
         "untuk mengekstrak teks dan menyimpannya ke basis pengetahuan (FAISS). Metadata dan teks disimpan di MySQL. "
         "Batasan: Maksimal 10 MB per file."
     )

@@ -27,9 +27,7 @@ MYSQL_CONFIG = {
 RAG_SUBFOLDERS = {
     ".pdf": RAG_DOCUMENTS_PATH / "pdf",
     ".doc": RAG_DOCUMENTS_PATH / "doc",
-    ".docx": RAG_DOCUMENTS_PATH / "docx",
-    ".odt": RAG_DOCUMENTS_PATH / "odt",
-    ".txt": RAG_DOCUMENTS_PATH / "txt"
+    ".docx": RAG_DOCUMENTS_PATH / "docx"
 }
 
 

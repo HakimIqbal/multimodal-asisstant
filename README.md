@@ -5,7 +5,7 @@ Asisten AI dengan fitur General Chat, Coder Chat, RAG System (Chat Dokumen), dan
 ## Fitur
 - **General Chat**: Tanyakan apa saja secara umum.
 - **Coder Chat**: Tanyakan hal terkait coding (debugging, penjelasan kode, dll).
-- **RAG System (Chat Dokumen)**: Unggah dokumen (DOC, DOCX, PDF, ODT, TXT, maks 10MB) untuk menjawab pertanyaan berdasarkan konten dokumen.
+- **RAG System (Chat Dokumen)**: Unggah dokumen (DOC, DOCX, PDF maks 10MB) untuk menjawab pertanyaan berdasarkan konten dokumen.
 - **OCR**: Ekstrak teks dari gambar (JPG, PNG, HEIC, JPEG, SVG, maks 5MB) dan jawab pertanyaan berdasarkan teks tersebut.
 
 

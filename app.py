@@ -84,10 +84,10 @@ with tab2:
 
 with tab3:
     st.header("📜 RAG System")
-    st.write("Unggah dokumen (DOC, DOCX, PDF, ODT, TXT, maksimal 10MB) dan tanyakan sesuatu berdasarkan dokumen tersebut!")
+    st.write("Unggah dokumen (DOC, DOCX, PDF, maksimal 10MB) dan tanyakan sesuatu berdasarkan dokumen tersebut!")
     
     st.subheader("Upload Dokumen")
-    uploaded_files = st.file_uploader("Pilih file dokumen", type=["doc", "docx", "pdf", "odt", "txt"], accept_multiple_files=True)
+    uploaded_files = st.file_uploader("Pilih file dokumen", type=["doc", "docx", "pdf"], accept_multiple_files=True)
     skip_duplicates = st.checkbox("Lewati file duplikat (jika nama sudah ada)")
     if st.button("Upload"):
         for uploaded_file in uploaded_files:
