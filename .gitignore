@@ -1,18 +1,30 @@
 /__pycache__/
-/venv/
-.env
-j.md
-*.gguf
+
+#API
 api/__pycache__/
 api/__init__.py
-data-rag/documents/
-data-rag/embeddings/
-data-rag/faiss_index/
+api/endpoints/__pycache__
+*.gguf
+
+#data RAG
+data-rag/documents/doc
+data-rag/documents/docx
+data-rag/documents/pdf
+data-rag/faiss_index/index.faiss
+data-rag/faiss_index/index.pkl
+data-rag/logs/archive
+
+#Data OCR
+data-ocr/logs/archive
+
+#File Uji Coba RAG
 fileujicoba-pdf-png-docx-jpeg-jpg/
+
+#src
 src/__pycache__
 src/__init__.py
-api/endpoints/__pycache__/
-g.txt
-data-rag/logs/archive/*
-data-rag/struktur-data-rag.md.md
-test_pdf2image.py
+
+README.md
+
+/venv/
+.env
