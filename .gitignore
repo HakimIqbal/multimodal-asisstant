@@ -1,10 +1,22 @@
+__pycache__/*
 #API
+api/__pycache__/*
 api/__init__.py
 
+#Data RAG
+data-rag/documents/docs/*
+data-rag/documents/docx/*
+data-rag/documents/pdf/*
+data-rag/faiss_index/index.faiss
+data-rag/faiss_index/index.pkl
+data-rag/logs/archive/*
 *.gguf
+
+fileujicoba-pdf-png-docx-jpeg-jpg/*
 
 #src
 src/__init__.py
+src/__pycache__/*
 
 README.md
 
