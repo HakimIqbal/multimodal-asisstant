@@ -2,13 +2,13 @@ __pycache__/
 #API
 api/__pycache__/
 api/__init__.py
+api/endpoints/__pycache__
 
 #Data RAG
 data-rag/documents/docs/
 data-rag/documents/docx/
 data-rag/documents/pdf/
-data-rag/faiss_index/index.faiss
-data-rag/faiss_index/index.pkl
+data-rag/faiss_index/
 data-rag/logs/archive/
 *.gguf
 
