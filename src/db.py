@@ -31,26 +31,6 @@ def save_document_to_mysql(filename: str, file_type: str, text_content: str):
             cursor.close()
             conn.close()
 
-def save_ocr_note(filename: str, extracted_text: str):
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        note_id = str(uuid.uuid4())
-        query = """
-        INSERT INTO ocr_notes (id, filename, extracted_text)
-        VALUES (%s, %s, %s)
-        """
-        cursor.execute(query, (note_id, filename, extracted_text))
-        conn.commit()
-        print(f"System: Berhasil menyimpan catatan OCR untuk {filename} ke MySQL.")
-    except mysql.connector.Error as e:
-        print(f"System: Gagal menyimpan catatan OCR ke MySQL: {str(e)}")
-    finally:
-        if conn and conn.is_connected():
-            cursor.close()
-            conn.close()
-
 def log_to_mysql(table: str, log_entry: dict):
     conn = None
     try:

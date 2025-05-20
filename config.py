@@ -7,14 +7,12 @@ load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", "data-rag/faiss_index")
 
-
 RAG_DOCUMENTS_PATH = Path(os.getenv("RAG_DOCUMENTS_PATH", "data-rag/documents"))
 
 LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY")
 LANGSMITH_ENDPOINT = os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
 LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "multimodal-assistant")
 LANGSMITH_TRACING = os.getenv("LANGSMITH_TRACING", "false").lower() == "true"
-
 
 MYSQL_CONFIG = {
     "host": os.getenv("MYSQL_HOST", "localhost"),
@@ -23,13 +21,9 @@ MYSQL_CONFIG = {
     "database": os.getenv("MYSQL_DATABASE", "multimodal_assistant")
 }
 
-
 RAG_SUBFOLDERS = {
-    ".pdf": RAG_DOCUMENTS_PATH / "pdf",
-    ".doc": RAG_DOCUMENTS_PATH / "doc",
-    ".docx": RAG_DOCUMENTS_PATH / "docx"
+    ".pdf": RAG_DOCUMENTS_PATH / "pdf"
 }
-
 
 for folder in RAG_SUBFOLDERS.values():
     folder.mkdir(parents=True, exist_ok=True)

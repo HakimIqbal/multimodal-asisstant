@@ -7,7 +7,6 @@ from src.vector_db import load_vector_store, process_and_store_text
 from src.db import get_db_connection
 from config import GROQ_API_KEY, VECTOR_DB_PATH, LANGSMITH_TRACING, RAG_DOCUMENTS_PATH, MYSQL_CONFIG
 
-
 embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 
 SUPPORTED_GROQ_MODELS = [
@@ -15,8 +14,7 @@ SUPPORTED_GROQ_MODELS = [
     "llama3-8b-8192",
     "gemma2-9b-it",
     "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
-    "llama-guard-3-8b"
+    "llama-3.1-8b-instant"
 ]
 
 def get_groq_model(model_name: str = "llama3-70b-8192"):

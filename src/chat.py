@@ -18,7 +18,6 @@ prompt_template = ChatPromptTemplate.from_messages([
     - HANYA jawab pertanyaan umum (misalnya, definisi, fakta sederhana).
     - Jika pertanyaan terkait coding (misalnya, membuat kode, debugging), jawab: "Gunakan fitur Coder Chat untuk pertanyaan coding."
     - Jika pertanyaan memerlukan dokumen, jawab: "Gunakan fitur RAG System untuk pertanyaan berbasis dokumen."
-    - Jika pertanyaan memerlukan OCR, jawab: "Gunakan fitur OCR untuk mengekstrak teks dari gambar."
     - Gunakan bahasa yang sama dengan input pengguna.
     """),
     MessagesPlaceholder(variable_name="chat_history"),

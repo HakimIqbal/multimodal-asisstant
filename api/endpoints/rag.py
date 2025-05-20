@@ -3,7 +3,6 @@ import uuid
 from fastapi import APIRouter, UploadFile, HTTPException
 from typing import List
 from pathlib import Path
-import pypandoc
 import pdfplumber
 import pytesseract
 from pdf2image import convert_from_path
@@ -16,7 +15,6 @@ from models import embedding_model, vector_store
 from config import RAG_SUBFOLDERS, RAG_DOCUMENTS_PATH, MYSQL_CONFIG
 from src.db import save_document_to_mysql
 from pydantic import BaseModel
-from src.document_processor import extract_text as extract_text_fallback
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -47,7 +45,7 @@ async def upload_files(files: List[UploadFile], skip_duplicates: bool = False):
     MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
     results = []
     system_message = (
-        "System: Fitur RAG System aktif. Saya akan memproses file dokumen (DOC, DOCX, PDF) "
+        "System: Fitur RAG System aktif. Saya akan memproses file dokumen (PDF) "
         "untuk mengekstrak teks dan menyimpannya ke basis pengetahuan (FAISS). Metadata dan teks disimpan di MySQL. "
         "Batasan: Maksimal 10 MB per file."
     )
@@ -70,7 +68,7 @@ async def upload_files(files: List[UploadFile], skip_duplicates: bool = False):
 
             _, ext = os.path.splitext(filename)
             ext = ext.lower()
-            if ext not in RAG_SUBFOLDERS:
+            if ext not in RAG_SUBFOLDERS:  # Hanya .pdf
                 results.append({
                     "status": "error",
                     "filename": filename,
@@ -161,31 +159,6 @@ async def upload_files(files: List[UploadFile], skip_duplicates: bool = False):
                 if not text_content.strip():
                     print(f"System: Teks dari pdfplumber kosong, menggunakan OCR untuk {final_filename}.")
                     text_content = extract_text_with_ocr(file_path)
-
-            else:
-                try:
-                    text_content = extract_text_fallback(str(file_path))
-                    if text_content.startswith("❌ Error"):
-                        print(f"System: Fallback ke document_processor gagal untuk {final_filename}: {text_content}")
-                        try:
-                            pypandoc.ensure_pandoc_installed()
-                            text_content = pypandoc.convert_file(str(file_path), "plain")
-                        except Exception as e:
-                            print(f"System: Gagal mengekstrak teks dengan pypandoc: {str(e)}")
-                            results.append({
-                                "status": "error",
-                                "filename": final_filename,
-                                "text": f"❌ Error: Gagal mengekstrak teks: {str(e)}"
-                            })
-                            continue
-                except Exception as e:
-                    print(f"System: Gagal mengekstrak teks dengan fallback: {str(e)}")
-                    results.append({
-                        "status": "error",
-                        "filename": final_filename,
-                        "text": f"❌ Error: Gagal mengekstrak teks: {str(e)}"
-                    })
-                    continue
 
             if not text_content.strip():
                 results.append({
