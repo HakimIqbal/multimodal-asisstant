@@ -11,6 +11,7 @@ from models import llm, vector_store
 from config import LANGSMITH_TRACING
 from src.db import log_to_mysql
 import logging
+import time
 
 logging.getLogger("langchain").setLevel(logging.WARNING)
 
@@ -59,7 +60,7 @@ def query_rag(question: str, chat_history: list = None) -> tuple[str, list]:
     
     print(f"System: Memahami pertanyaan RAG: {question}")
 
-
+    start_time = time.time()
     docs = []
     try:
         retriever_no_threshold = vector_store.as_retriever(search_kwargs={"k": 10})
@@ -71,11 +72,10 @@ def query_rag(question: str, chat_history: list = None) -> tuple[str, list]:
     except Exception as e:
         print(f"System: Gagal mengambil dokumen (tanpa ambang batas): {str(e)}")
 
-
     try:
         retriever = vector_store.as_retriever(search_kwargs={"k": 5})
         docs = retriever.invoke(question)
-        print(f"System: Dokumen yang diambil untuk inferensi: {len(docs)} dokumen")
+        print(f"System: Dokumen yang diambil untuk inferensi: {len(docs)} dokumen (Waktu: {time.time() - start_time:.2f}s)")
         for i, doc in enumerate(docs):
             score = vector_store.similarity_search_with_score(question, k=5)[i][1]
             print(f"System: Dokumen {i + 1}: {doc.page_content[:100]}... (Skor Jarak: {score})")

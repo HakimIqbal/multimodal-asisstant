@@ -6,8 +6,12 @@ from langchain_groq import ChatGroq
 from src.vector_db import load_vector_store, process_and_store_text
 from src.db import get_db_connection
 from config import GROQ_API_KEY, VECTOR_DB_PATH, LANGSMITH_TRACING, RAG_DOCUMENTS_PATH, MYSQL_CONFIG
+import torch
 
-embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
+embedding_model = HuggingFaceEmbeddings(
+    model_name="BAAI/bge-m3",
+    model_kwargs={"device": "mps" if torch.backends.mps.is_available() else "cpu"}
+)
 
 SUPPORTED_GROQ_MODELS = [
     "llama3-70b-8192",
@@ -39,9 +43,11 @@ def get_groq_model(model_name: str = "llama3-70b-8192"):
 
 llm = get_groq_model()
 
+
 try:
     vector_store = load_vector_store(VECTOR_DB_PATH, embedding_model)
-except:
+except Exception as e:
+    print(f"System: Gagal memuat vector store: {str(e)}. Membuat vector store baru.")
     vector_store = FAISS.from_texts([""], embedding_model)
     vector_store.save_local(VECTOR_DB_PATH)
 
