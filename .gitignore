@@ -22,3 +22,5 @@ README.md
 
 /venv/
 .env
+
+clear_rag_tables.py
