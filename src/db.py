@@ -12,20 +12,21 @@ def get_db_connection():
         print(f"System: Gagal terhubung ke MySQL: {str(e)}")
         raise e
 
-def save_document_to_mysql(filename: str, file_type: str, text_content: str):
+def save_document_to_mysql(filename: str, file_type: str, text_content: str, file_url: str = None):
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         query = """
-        INSERT INTO documents (filename, file_format, text_content, uploaded_at)
-        VALUES (%s, %s, %s, NOW())
+        INSERT INTO documents (filename, file_format, text_content, file_url, uploaded_at)
+        VALUES (%s, %s, %s, %s, NOW())
         """
-        cursor.execute(query, (filename, file_type, text_content))
+        cursor.execute(query, (filename, file_type, text_content, file_url))
         conn.commit()
-        print(f"System: Berhasil menyimpan dokumen {filename} ke MySQL.")
+        print(f"System: Berhasil menyimpan dokumen {filename} ke MySQL dengan URL {file_url}.")
     except mysql.connector.Error as e:
         print(f"System: Gagal menyimpan dokumen ke MySQL: {str(e)}")
+        raise e
     finally:
         if conn and conn.is_connected():
             cursor.close()

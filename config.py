@@ -1,13 +1,12 @@
 import os
-from pathlib import Path
 from dotenv import load_dotenv
+import cloudinary
 
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", "data-rag/faiss_index")
 
-RAG_DOCUMENTS_PATH = Path(os.getenv("RAG_DOCUMENTS_PATH", "data-rag/documents"))
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 
 LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY")
 LANGSMITH_ENDPOINT = os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
@@ -21,12 +20,12 @@ MYSQL_CONFIG = {
     "database": os.getenv("MYSQL_DATABASE", "multimodal_assistant")
 }
 
-RAG_SUBFOLDERS = {
-    ".pdf": RAG_DOCUMENTS_PATH / "pdf"
-}
-
-for folder in RAG_SUBFOLDERS.values():
-    folder.mkdir(parents=True, exist_ok=True)
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True
+)
 
 if not GROQ_API_KEY:
     raise ValueError("GROQ_API_KEY tidak ditemukan di .env")

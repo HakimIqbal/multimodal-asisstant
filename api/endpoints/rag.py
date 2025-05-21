@@ -1,20 +1,21 @@
-import os
+import io
+import os  
 import uuid
 from fastapi import APIRouter, UploadFile, HTTPException
 from typing import List
-from pathlib import Path
 import pdfplumber
 import pytesseract
-from pdf2image import convert_from_path
+from pdf2image import convert_from_bytes
 import re
 import mysql.connector
-import urllib3
+import cloudinary.uploader
 from src.rag import query_rag
 from src.vector_db import process_and_store_text
 from models import embedding_model, vector_store
-from config import RAG_SUBFOLDERS, RAG_DOCUMENTS_PATH, MYSQL_CONFIG
 from src.db import save_document_to_mysql
+from config import MYSQL_CONFIG  
 from pydantic import BaseModel
+import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -29,9 +30,9 @@ def clean_text(text: str) -> str:
     text = re.sub(r'\s+', ' ', text)
     return text.strip()
 
-def extract_text_with_ocr(file_path: Path) -> str:
+def extract_text_with_ocr(file_content: bytes) -> str:
     try:
-        images = convert_from_path(file_path)
+        images = convert_from_bytes(file_content)
         text = ""
         for image in images:
             text += pytesseract.image_to_string(image, lang='eng+ind') + "\n"
@@ -46,12 +47,11 @@ async def upload_files(files: List[UploadFile], skip_duplicates: bool = False):
     results = []
     system_message = (
         "System: Fitur RAG System aktif. Saya akan memproses file dokumen (PDF) "
-        "untuk mengekstrak teks dan menyimpannya ke basis pengetahuan (FAISS). Metadata dan teks disimpan di MySQL. "
+        "untuk mengekstrak teks dan menyimpannya ke basis pengetahuan (Pinecone). "
+        "File diunggah ke Cloudinary, dan metadata disimpan di MySQL. "
         "Batasan: Maksimal 10 MB per file."
     )
     print(system_message)
-
-    RAG_DOCUMENTS_PATH.mkdir(parents=True, exist_ok=True)
 
     for file in files:
         filename = file.filename
@@ -68,7 +68,7 @@ async def upload_files(files: List[UploadFile], skip_duplicates: bool = False):
 
             _, ext = os.path.splitext(filename)
             ext = ext.lower()
-            if ext not in RAG_SUBFOLDERS:  # Hanya .pdf
+            if ext != ".pdf":
                 results.append({
                     "status": "error",
                     "filename": filename,
@@ -106,7 +106,6 @@ async def upload_files(files: List[UploadFile], skip_duplicates: bool = False):
                 counter = 1
                 while counter <= 100:
                     final_filename = f"{base}-{counter}{ext}"
-                    file_path = RAG_SUBFOLDERS[ext] / final_filename
                     try:
                         conn = mysql.connector.connect(**MYSQL_CONFIG)
                         cursor = conn.cursor()
@@ -128,37 +127,19 @@ async def upload_files(files: List[UploadFile], skip_duplicates: bool = False):
                     })
                     continue
 
-            file_path = RAG_SUBFOLDERS[ext] / final_filename
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-
-            try:
-                with open(file_path, "wb") as f:
-                    f.write(file_content)
-            except Exception as e:
-                print(f"System: Gagal menyimpan file {final_filename}: {str(e)}")
-                results.append({
-                    "status": "error",
-                    "filename": final_filename,
-                    "text": f"❌ Error: Gagal menyimpan file ke disk."
-                })
-                continue
-
             text_content = ""
-            file_extension = Path(final_filename).suffix.lower()
+            try:
+                with pdfplumber.open(io.BytesIO(file_content)) as pdf:
+                    for page in pdf.pages:
+                        page_text = page.extract_text()
+                        if page_text:
+                            text_content += page_text + "\n"
+            except Exception as e:
+                print(f"System: Gagal mengekstrak teks dari PDF dengan pdfplumber: {str(e)}")
 
-            if file_extension == ".pdf":
-                try:
-                    with pdfplumber.open(file_path) as pdf:
-                        for page in pdf.pages:
-                            page_text = page.extract_text()
-                            if page_text:
-                                text_content += page_text + "\n"
-                except Exception as e:
-                    print(f"System: Gagal mengekstrak teks dari PDF dengan pdfplumber: {str(e)}")
-
-                if not text_content.strip():
-                    print(f"System: Teks dari pdfplumber kosong, menggunakan OCR untuk {final_filename}.")
-                    text_content = extract_text_with_ocr(file_path)
+            if not text_content.strip():
+                print(f"System: Teks dari pdfplumber kosong, menggunakan OCR untuk {final_filename}.")
+                text_content = extract_text_with_ocr(file_content)
 
             if not text_content.strip():
                 results.append({
@@ -168,9 +149,26 @@ async def upload_files(files: List[UploadFile], skip_duplicates: bool = False):
                 })
                 continue
 
+            try:
+                upload_result = cloudinary.uploader.upload(
+                    io.BytesIO(file_content),
+                    resource_type="raw",
+                    public_id=f"documents/{final_filename}",
+                    overwrite=True
+                )
+                file_url = upload_result["secure_url"]
+            except Exception as e:
+                print(f"System: Gagal mengunggah file {final_filename} ke Cloudinary: {str(e)}")
+                results.append({
+                    "status": "error",
+                    "filename": final_filename,
+                    "text": f"❌ Error: Gagal mengunggah file ke Cloudinary."
+                })
+                continue
+
             text_content = clean_text(text_content)
             try:
-                save_document_to_mysql(final_filename, file_extension, text_content)
+                save_document_to_mysql(final_filename, ext, text_content, file_url=file_url)
             except Exception as e:
                 print(f"System: Gagal menyimpan dokumen {final_filename} ke MySQL: {str(e)}")
                 results.append({
@@ -181,9 +179,9 @@ async def upload_files(files: List[UploadFile], skip_duplicates: bool = False):
                 continue
 
             try:
-                process_and_store_text(text_content, embedding_model, vector_store)
+                process_and_store_text(text_content, embedding_model, vector_store, metadata={"filename": final_filename, "url": file_url})
             except Exception as e:
-                print(f"System: Gagal menyimpan teks ke FAISS untuk {final_filename}: {str(e)}")
+                print(f"System: Gagal menyimpan teks ke Pinecone untuk {final_filename}: {str(e)}")
                 results.append({
                     "status": "error",
                     "filename": final_filename,
@@ -195,8 +193,9 @@ async def upload_files(files: List[UploadFile], skip_duplicates: bool = False):
             results.append({
                 "status": "success",
                 "filename": final_filename,
-                "text": f"Teks berhasil diekstrak dari {final_filename}.",
-                "preview": preview
+                "text": f"Teks berhasil diekstrak dan diunggah ke Cloudinary dari {final_filename}.",
+                "preview": preview,
+                "url": file_url
             })
 
         except Exception as e:

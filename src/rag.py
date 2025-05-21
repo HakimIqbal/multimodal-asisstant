@@ -1,8 +1,6 @@
 import json
-import os
 import uuid
 from datetime import datetime
-from pathlib import Path
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.prompts import PromptTemplate
 from langchain_core.documents import Document
@@ -14,9 +12,6 @@ import logging
 import time
 
 logging.getLogger("langchain").setLevel(logging.WARNING)
-
-RAG_LOG_DIR = Path("data-rag/logs/archive")
-RAG_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 prompt_template = PromptTemplate(
     input_variables=["context", "question", "chat_history"],
@@ -82,7 +77,6 @@ def query_rag(question: str, chat_history: list = None) -> tuple[str, list]:
     except Exception as e:
         print(f"System: Gagal mengambil dokumen untuk inferensi: {str(e)}")
 
-
     if not docs or all(doc.page_content.strip() == "" for doc in docs):
         answer = "Assistant: Saya tidak memiliki informasi cukup dari dokumen yang diunggah untuk menjawab ini."
     else:
@@ -118,7 +112,6 @@ def query_rag(question: str, chat_history: list = None) -> tuple[str, list]:
 
     print(f"System: Memeriksa konteks jawaban RAG untuk: {question}")
 
-
     log_entry = {
         "id": str(uuid.uuid4()),
         "timestamp": datetime.utcnow().isoformat(),
@@ -136,14 +129,6 @@ def query_rag(question: str, chat_history: list = None) -> tuple[str, list]:
         log_to_mysql("rag_logs", log_entry)
     except Exception as e:
         print(f"System: Gagal menyimpan log ke MySQL: {str(e)}")
-
-    log_file = RAG_LOG_DIR / f"rag_log_{log_entry['id']}.json"
-    try:
-        with open(log_file, "w", encoding="utf-8") as f:
-            json.dump(log_entry, f, indent=2, ensure_ascii=False)
-        print(f"System: Log disimpan ke file {log_file}")
-    except Exception as e:
-        print(f"System: Gagal menyimpan log ke file {log_file}: {str(e)}")
 
     updated_history = chat_history.copy()
     updated_history.append({"content": question})
