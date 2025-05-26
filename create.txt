@@ -1,0 +1,1245 @@
+berikut ini yang saya lampirkan merupakan  bagian yang saya kerjakan di magang dengan judul project multimodal asisstant, tpi saya bingung judul laporan magang yang pas dari apa yang saya kerjakan apa ya? barangkali kamu ada referensi yang bagus untuk saya, berikan beberapa pilihan judul yang bagus untuk saya berdasarkan apa yang saya kerjakan.
+
+berikut struktur folder project beserta masing-masing kode yang saya kerjakan ketika magang.
+
+Struktur difolder root project :
+Multimodalallchatbot/
+├── api/
+│   ├── endpoints/
+│   │   ├── chat.py
+│   │   ├── coder.py
+│   │   └── rag.py
+│   └── server.py
+├── src/
+│   ├── chat.py
+│   ├── coder.py
+│   ├── rag.py
+│   ├── vector_db.py
+│   ├── document_processor.py
+│   └── db.py
+├── data-rag/
+│   ├── documents/
+│   │   └── pdf
+│   ├── logs/
+│   │   └── archive/
+│   └── faiss_index/
+├── models.py
+├── config.py
+├── app.py
+├── main.py
+├── migrations/
+│   └── init.sql
+├── .env
+└── requirements.txt
+
+berikut code dari masing-masing file:
+
+file api/endpoints/chat.py
+from fastapi import APIRouter
+from pydantic import BaseModel
+from src.chat import chat_general
+from models import SUPPORTED_GROQ_MODELS
+
+router = APIRouter()
+
+class ChatRequest(BaseModel):
+    query: str
+    model_name: str = "llama3-70b-8192"
+
+@router.post("/general/")
+async def chat(request: ChatRequest):
+    response = chat_general(request.query, request.model_name)
+    return {"query": request.query, "response": response, "model": request.model_name}
+
+
+file api/endpoints/coder.py
+
+from fastapi import APIRouter
+from pydantic import BaseModel
+from src.coder import chat_coder
+from models import SUPPORTED_GROQ_MODELS
+
+router = APIRouter()
+
+class CoderRequest(BaseModel):
+    query: str
+    model_name: str = "llama3-70b-8192"
+
+@router.post("/coder/")
+async def coder_chat(request: CoderRequest):
+    response = chat_coder(request.query, request.model_name)
+    return {"query": request.query, "response": response, "model": request.model_name}
+
+
+file api/endpoints/rag.py
+
+import io
+import os  
+import uuid
+from fastapi import APIRouter, UploadFile, HTTPException
+from typing import List
+import pdfplumber
+import pytesseract
+from pdf2image import convert_from_bytes
+import re
+import mysql.connector
+import cloudinary.uploader
+from src.rag import query_rag
+from src.vector_db import process_and_store_text
+from models import embedding_model, vector_store
+from src.db import save_document_to_mysql
+from config import MYSQL_CONFIG  
+from pydantic import BaseModel
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+router = APIRouter()
+
+class QueryRequest(BaseModel):
+    question: str
+    chat_history: list = None
+
+def clean_text(text: str) -> str:
+    text = re.sub(r'[^\w\s.,!?()-]', ' ', text)
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+def extract_text_with_ocr(file_content: bytes) -> str:
+    try:
+        images = convert_from_bytes(file_content)
+        text = ""
+        for image in images:
+            text += pytesseract.image_to_string(image, lang='eng+ind') + "\n"
+        return text.strip()
+    except Exception as e:
+        print(f"System: Gagal mengekstrak teks dengan OCR: {str(e)}")
+        return ""
+
+@router.post("/upload/")
+async def upload_files(files: List[UploadFile], skip_duplicates: bool = False):
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+    results = []
+    system_message = (
+        "System: Fitur RAG System aktif. Saya akan memproses file dokumen (PDF) "
+        "untuk mengekstrak teks dan menyimpannya ke basis pengetahuan (Pinecone). "
+        "File diunggah ke Cloudinary, dan metadata disimpan di MySQL. "
+        "Batasan: Maksimal 10 MB per file."
+    )
+    print(system_message)
+
+    for file in files:
+        filename = file.filename
+        try:
+            file_content = await file.read()
+            file_size = len(file_content)
+            if file_size > MAX_FILE_SIZE:
+                results.append({
+                    "status": "error",
+                    "filename": filename,
+                    "text": f"❌ Error: File '{filename}' melebihi batas ukuran 10MB."
+                })
+                continue
+
+            _, ext = os.path.splitext(filename)
+            ext = ext.lower()
+            if ext != ".pdf":
+                results.append({
+                    "status": "error",
+                    "filename": filename,
+                    "text": f"❌ Error: Format '{ext}' tidak didukung."
+                })
+                continue
+
+            try:
+                conn = mysql.connector.connect(**MYSQL_CONFIG)
+                cursor = conn.cursor()
+                cursor.execute("SELECT filename FROM documents WHERE filename = %s", (filename,))
+                is_duplicate = cursor.fetchone() is not None
+                cursor.close()
+                conn.close()
+            except Exception as e:
+                print(f"System: Gagal memeriksa duplikat di MySQL: {str(e)}")
+                results.append({
+                    "status": "error",
+                    "filename": filename,
+                    "text": f"❌ Error: Gagal memeriksa duplikat di database."
+                })
+                continue
+
+            if skip_duplicates and is_duplicate:
+                results.append({
+                    "status": "skipped",
+                    "filename": filename,
+                    "text": f"⚠️ File '{filename}' dilewati karena sudah ada."
+                })
+                continue
+
+            final_filename = filename
+            if is_duplicate and not skip_duplicates:
+                base, ext = os.path.splitext(filename)
+                counter = 1
+                while counter <= 100:
+                    final_filename = f"{base}-{counter}{ext}"
+                    try:
+                        conn = mysql.connector.connect(**MYSQL_CONFIG)
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT filename FROM documents WHERE filename = %s", (final_filename,))
+                        is_duplicate = cursor.fetchone() is not None
+                        cursor.close()
+                        conn.close()
+                        if not is_duplicate:
+                            break
+                    except Exception as e:
+                        print(f"System: Gagal memeriksa duplikat untuk {final_filename}: {str(e)}")
+                        break
+                    counter += 1
+                if counter > 100:
+                    results.append({
+                        "status": "error",
+                        "filename": filename,
+                        "text": f"❌ Error: Gagal menemukan nama unik setelah 100 percobaan."
+                    })
+                    continue
+
+            text_content = ""
+            try:
+                with pdfplumber.open(io.BytesIO(file_content)) as pdf:
+                    for page in pdf.pages:
+                        page_text = page.extract_text()
+                        if page_text:
+                            text_content += page_text + "\n"
+            except Exception as e:
+                print(f"System: Gagal mengekstrak teks dari PDF dengan pdfplumber: {str(e)}")
+
+            if not text_content.strip():
+                print(f"System: Teks dari pdfplumber kosong, menggunakan OCR untuk {final_filename}.")
+                text_content = extract_text_with_ocr(file_content)
+
+            if not text_content.strip():
+                results.append({
+                    "status": "error",
+                    "filename": final_filename,
+                    "text": "❌ Error: Tidak ada teks yang dapat diekstrak dari file."
+                })
+                continue
+
+            try:
+                upload_result = cloudinary.uploader.upload(
+                    io.BytesIO(file_content),
+                    resource_type="raw",
+                    public_id=f"documents/{final_filename}",
+                    overwrite=True
+                )
+                file_url = upload_result["secure_url"]
+            except Exception as e:
+                print(f"System: Gagal mengunggah file {final_filename} ke Cloudinary: {str(e)}")
+                results.append({
+                    "status": "error",
+                    "filename": final_filename,
+                    "text": f"❌ Error: Gagal mengunggah file ke Cloudinary."
+                })
+                continue
+
+            text_content = clean_text(text_content)
+            try:
+                save_document_to_mysql(final_filename, ext, text_content, file_url=file_url)
+            except Exception as e:
+                print(f"System: Gagal menyimpan dokumen {final_filename} ke MySQL: {str(e)}")
+                results.append({
+                    "status": "error",
+                    "filename": final_filename,
+                    "text": f"❌ Error: Gagal menyimpan dokumen ke database."
+                })
+                continue
+
+            try:
+                process_and_store_text(text_content, embedding_model, vector_store, metadata={"filename": final_filename, "url": file_url})
+            except Exception as e:
+                print(f"System: Gagal menyimpan teks ke Pinecone untuk {final_filename}: {str(e)}")
+                results.append({
+                    "status": "error",
+                    "filename": final_filename,
+                    "text": f"❌ Error: Gagal menyimpan teks ke basis pengetahuan."
+                })
+                continue
+
+            preview = text_content[:100].replace("\n", " ") + "..." if len(text_content) > 100 else text_content
+            results.append({
+                "status": "success",
+                "filename": final_filename,
+                "text": f"Teks berhasil diekstrak dan diunggah ke Cloudinary dari {final_filename}.",
+                "preview": preview,
+                "url": file_url
+            })
+
+        except Exception as e:
+            print(f"System: Gagal memproses file {filename}: {str(e)}")
+            results.append({
+                "status": "error",
+                "filename": filename,
+                "text": f"❌ Error: Gagal memproses file: {str(e)}"
+            })
+
+    return {"system_message": system_message, "results": results}
+
+@router.post("/query/")
+async def query(request: QueryRequest):
+    try:
+        answer, updated_history = query_rag(request.question, request.chat_history)
+        return {"question": request.question, "answer": answer, "chat_history": updated_history}
+    except Exception as e:
+        print(f"System: Gagal memproses query RAG: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Gagal memproses query: {str(e)}")
+
+file api/server.py
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from api.endpoints import rag, chat, coder
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(rag.router, prefix="/rag")
+app.include_router(chat.router, prefix="/chat")
+app.include_router(coder.router, prefix="/coder")
+
+@app.get("/")
+def home():
+    return {"message": "Multimodal Assistant API is running!"}
+
+file migrations/init.sql
+CREATE DATABASE IF NOT EXISTS multimodal_assistant_db;
+USE multimodal_assistant_db;
+
+CREATE TABLE IF NOT EXISTS documents (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    filename VARCHAR(255) NOT NULL,
+    file_format VARCHAR(20) NOT NULL,
+    text_content MEDIUMTEXT,
+    file_url VARCHAR(255), 
+    uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS general_logs (
+    id VARCHAR(36) PRIMARY KEY,
+    timestamp DATETIME NOT NULL,
+    input TEXT NOT NULL,
+    output TEXT NOT NULL,
+    metadata JSON
+);
+
+CREATE TABLE IF NOT EXISTS coder_logs (
+    id VARCHAR(36) PRIMARY KEY,
+    timestamp DATETIME NOT NULL,
+    input TEXT NOT NULL,
+    output TEXT NOT NULL,
+    metadata JSON
+);
+
+CREATE TABLE IF NOT EXISTS rag_logs (
+    id VARCHAR(36) PRIMARY KEY,
+    timestamp DATETIME NOT NULL,
+    input TEXT NOT NULL,
+    output TEXT NOT NULL,
+    metadata JSON
+);
+
+file src/chat.py
+import json
+import os
+import uuid
+from datetime import datetime
+from pathlib import Path
+from langchain_community.chat_message_histories import ChatMessageHistory
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from models import get_groq_model
+from config import LANGSMITH_TRACING
+from src.db import log_to_mysql
+
+
+chat_history_store = ChatMessageHistory()
+
+prompt_template = ChatPromptTemplate.from_messages([
+    ("system", """
+    System: Anda adalah asisten AI untuk pertanyaan umum. Jawab singkat, langsung ke inti, dan gunakan Markdown.
+    - HANYA jawab pertanyaan umum (misalnya, definisi, fakta sederhana).
+    - Jika pertanyaan terkait coding (misalnya, membuat kode, debugging), jawab: "Gunakan fitur Coder Chat untuk pertanyaan coding."
+    - Jika pertanyaan memerlukan dokumen, jawab: "Gunakan fitur RAG System untuk pertanyaan berbasis dokumen."
+    - Gunakan bahasa yang sama dengan input pengguna.
+    """),
+    MessagesPlaceholder(variable_name="chat_history"),
+    ("human", "{query}")
+])
+
+def detect_language(query: str) -> str:
+    indonesian_words = {"apa", "bagaimana", "siapa", "dimana", "kapan", "mengapa", "adalah"}
+    query_lower = query.lower()
+    if any(word in query_lower for word in indonesian_words):
+        return "id"
+    return "en"
+
+def detect_coding_query(query: str) -> bool:
+    coding_keywords = {"kode", "code", "program", "fungsi", "function", "debug", "error", "script", "buatkan", "generate", "perbaiki"}
+    query_lower = query.lower()
+    return any(keyword in query_lower for keyword in coding_keywords)
+
+def chat_general(query: str, model_name: str = "llama3-70b-8192"):
+    if LANGSMITH_TRACING:
+        print(f"System: Melacak chat query '{query}' di LangSmith.")
+    
+    language = detect_language(query)
+    print(f"System: Bahasa terdeteksi: {language}")
+
+    if detect_coding_query(query):
+        answer = "Gunakan fitur Coder Chat untuk pertanyaan coding."
+    else:
+
+        llm = get_groq_model(model_name)
+        chat_history = chat_history_store.messages
+        prompt = prompt_template.format_messages(query=query, chat_history=chat_history)
+        response = llm.invoke(prompt)
+        answer = response.content.strip()
+
+
+        if len(answer.split()) > 50 and "\n" not in answer:
+            answer = "\n".join([answer[i:i+100] for i in range(0, len(answer), 100)])
+
+
+        chat_history_store.add_user_message(query)
+        chat_history_store.add_ai_message(answer)
+
+
+    log_entry = {
+        "id": str(uuid.uuid4()),
+        "timestamp": datetime.utcnow().isoformat(),
+        "input": query,
+        "output": answer,
+        "metadata": {
+            "source": "General Chatbot",
+            "model": model_name,
+            "context": "General",
+            "language": language
+        }
+    }
+    log_to_mysql("general_logs", log_entry)
+    
+    return answer
+
+file src/coder.py
+
+import json
+import os
+import uuid
+from datetime import datetime
+from pathlib import Path
+from langchain_community.chat_message_histories import ChatMessageHistory
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from models import get_groq_model
+from config import LANGSMITH_TRACING
+from src.db import log_to_mysql
+
+
+coder_chat_history = ChatMessageHistory()
+
+prompt_template = ChatPromptTemplate.from_messages([
+    ("system", """
+    System: Anda adalah asisten coding yang memberikan jawaban detail, jelas, dan terstruktur. Gunakan Markdown dan sertakan contoh kode dalam blok kode (```). 
+    - Jawab hanya pertanyaan terkait coding (misalnya, membuat kode, debugging, penjelasan konsep pemrograman).
+    - Jika pertanyaan tidak terkait coding, jawab: "Gunakan fitur General Chat untuk pertanyaan umum."
+    - Jika pertanyaan memerlukan dokumen, jawab: "Gunakan fitur RAG System untuk pertanyaan berbasis dokumen."
+    - Gunakan bahasa yang sama dengan input pengguna.
+    """),
+    MessagesPlaceholder(variable_name="chat_history"),
+    ("human", "{query}")
+])
+
+def detect_language(query: str) -> str:
+    indonesian_words = {"apa", "bagaimana", "siapa", "dimana", "kapan", "mengapa", "adalah"}
+    query_lower = query.lower()
+    if any(word in query_lower for word in indonesian_words):
+        return "id"
+    return "en"
+
+def detect_non_coding_query(query: str) -> bool:
+    non_coding_keywords = {"definisi", "pengertian", "apa itu", "sejarah", "fakta"}
+    query_lower = query.lower()
+    return any(keyword in query_lower for keyword in non_coding_keywords) and "kode" not in query_lower and "code" not in query_lower
+
+def chat_coder(query: str, model_name: str = "llama3-70b-8192"):
+    if LANGSMITH_TRACING:
+        print(f"System: Melacak coder query '{query}' di LangSmith.")
+    
+ 
+    language = detect_language(query)
+    print(f"System: Bahasa terdeteksi: {language}")
+
+
+    if detect_non_coding_query(query):
+        answer = "Gunakan fitur General Chat untuk pertanyaan umum."
+    else:
+
+        llm = get_groq_model(model_name)
+        chat_history = coder_chat_history.messages
+        prompt = prompt_template.format_messages(query=query, chat_history=chat_history)
+        response = llm.invoke(prompt)
+        answer = response.content.strip()
+
+
+        if len(answer.split()) > 50 and "\n" not in answer:
+            answer = "\n".join([answer[i:i+100] for i in range(0, len(answer), 100)])
+
+
+        coder_chat_history.add_user_message(query)
+        coder_chat_history.add_ai_message(answer)
+
+
+    log_entry = {
+        "id": str(uuid.uuid4()),
+        "timestamp": datetime.utcnow().isoformat(),
+        "input": query,
+        "output": answer,
+        "metadata": {
+            "source": "Coder Chatbot",
+            "model": model_name,
+            "context": "Coding",
+            "language": language
+        }
+    }
+    log_to_mysql("coder_logs", log_entry)
+    
+    return answer
+
+
+file src/db.py
+
+import mysql.connector
+import json
+from config import MYSQL_CONFIG
+import uuid
+from datetime import datetime
+
+def get_db_connection():
+    try:
+        conn = mysql.connector.connect(**MYSQL_CONFIG)
+        return conn
+    except mysql.connector.Error as e:
+        print(f"System: Gagal terhubung ke MySQL: {str(e)}")
+        raise e
+
+def save_document_to_mysql(filename: str, file_type: str, text_content: str, file_url: str = None):
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        query = """
+        INSERT INTO documents (filename, file_format, text_content, file_url, uploaded_at)
+        VALUES (%s, %s, %s, %s, NOW())
+        """
+        cursor.execute(query, (filename, file_type, text_content, file_url))
+        conn.commit()
+        print(f"System: Berhasil menyimpan dokumen {filename} ke MySQL dengan URL {file_url}.")
+    except mysql.connector.Error as e:
+        print(f"System: Gagal menyimpan dokumen ke MySQL: {str(e)}")
+        raise e
+    finally:
+        if conn and conn.is_connected():
+            cursor.close()
+            conn.close()
+
+def log_to_mysql(table: str, log_entry: dict):
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        query = f"""
+        INSERT INTO {table} (id, timestamp, input, output, metadata)
+        VALUES (%s, %s, %s, %s, %s)
+        """
+        cursor.execute(query, (
+            log_entry["id"],
+            log_entry["timestamp"],
+            log_entry["input"],
+            log_entry["output"],
+            json.dumps(log_entry["metadata"])
+        ))
+        conn.commit()
+        print(f"System: Berhasil menyimpan log ke tabel {table}.")
+    except mysql.connector.Error as e:
+        print(f"System: Gagal menyimpan log ke MySQL: {str(e)}")
+    finally:
+        if conn and conn.is_connected():
+            cursor.close()
+            conn.close()
+
+file src/document_processor.py
+
+import os
+import pdfplumber
+from pdf2image import convert_from_bytes
+import pytesseract
+import logging
+
+logging.getLogger("pdfplumber").setLevel(logging.WARNING)
+
+def extract_text_from_pdf(pdf_path: str) -> str:
+    if not os.path.exists(pdf_path):
+        return f"❌ Error: File PDF '{pdf_path}' tidak ditemukan."
+    text = ""
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + "\n"
+    except Exception as e:
+        print(f"System: Gagal mengekstrak teks dengan pdfplumber: {str(e)}")
+
+    if not text.strip():
+        print(f"System: Tidak ada teks yang terdeteksi dalam {pdf_path} dengan pdfplumber. Mencoba OCR...")
+        try:
+            with open(pdf_path, "rb") as f:
+                pdf_content = f.read()
+            images = convert_from_bytes(pdf_content)
+            for image in images:
+                page_text = pytesseract.image_to_string(image, lang="eng+ind")
+                if page_text:
+                    text += page_text + "\n"
+        except Exception as e:
+            print(f"System: Gagal mengekstrak teks dengan OCR: {str(e)}")
+
+    return text.strip() or ""
+
+def extract_text(file_path: str) -> str:
+    _, ext = os.path.splitext(file_path)
+    ext = ext.lower()
+    if ext == ".pdf":
+        return extract_text_from_pdf(file_path)
+    else:
+        return f"❌ Error: Format file '{ext}' tidak didukung."
+
+file src/rag.py
+
+import json
+import uuid
+from datetime import datetime
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain.prompts import PromptTemplate
+from langchain_core.documents import Document
+from langchain_core.messages import HumanMessage, AIMessage
+from models import llm, vector_store
+from config import LANGSMITH_TRACING
+from src.db import log_to_mysql
+import logging
+import time
+
+logging.getLogger("langchain").setLevel(logging.WARNING)
+
+prompt_template = PromptTemplate(
+    input_variables=["context", "question", "chat_history"],
+    template="""
+    System: Anda adalah asisten RAG yang HANYA menjawab berdasarkan dokumen yang diunggah. 
+    - DILARANG menggunakan pengetahuan eksternal atau memberikan jawaban spekulatif.
+    - Jika tidak ada dokumen relevan, jawab: "Assistant: Saya tidak memiliki informasi cukup dari dokumen yang diunggah untuk menjawab ini."
+    - Gunakan bahasa yang sama dengan input pengguna.
+    - Gunakan Markdown untuk formatting.
+    - Berikan jawaban singkat, terstruktur, dan langsung ke inti.
+    - Jika jawaban panjang, gunakan poin-poin.
+    
+    Riwayat percakapan:
+    {chat_history}
+    
+    Context dari dokumen:
+    {context}
+    
+    Pertanyaan: {question}
+    Jawaban:
+    """
+)
+
+stuff_chain = create_stuff_documents_chain(llm=llm, prompt=prompt_template)
+
+def detect_language(query: str) -> str:
+    indonesian_words = {"apa", "bagaimana", "siapa", "dimana", "kapan", "mengapa", "adalah"}
+    query_lower = query.lower()
+    if any(word in query_lower for word in indonesian_words):
+        return "id"
+    return "en"
+
+def query_rag(question: str, chat_history: list = None) -> tuple[str, list]:
+    if LANGSMITH_TRACING:
+        print(f"System: Melacak query '{question}' di LangSmith.")
+    
+    language = detect_language(question)
+    print(f"System: Bahasa terdeteksi: {language}")
+    
+    chat_history = chat_history or []
+    
+    print(f"System: Memahami pertanyaan RAG: {question}")
+
+    start_time = time.time()
+    docs = []
+    try:
+        retriever_no_threshold = vector_store.as_retriever(search_kwargs={"k": 10})
+        docs_no_threshold = retriever_no_threshold.invoke(question)
+        print(f"System: Dokumen yang diambil (tanpa ambang batas): {len(docs_no_threshold)} dokumen")
+        for i, doc in enumerate(docs_no_threshold):
+            score = vector_store.similarity_search_with_score(question, k=10)[i][1]
+            print(f"System: Dokumen {i + 1}: {doc.page_content[:100]}... (Skor Jarak: {score})")
+    except Exception as e:
+        print(f"System: Gagal mengambil dokumen (tanpa ambang batas): {str(e)}")
+
+    try:
+        retriever = vector_store.as_retriever(search_kwargs={"k": 5})
+        docs = retriever.invoke(question)
+        print(f"System: Dokumen yang diambil untuk inferensi: {len(docs)} dokumen (Waktu: {time.time() - start_time:.2f}s)")
+        for i, doc in enumerate(docs):
+            score = vector_store.similarity_search_with_score(question, k=5)[i][1]
+            print(f"System: Dokumen {i + 1}: {doc.page_content[:100]}... (Skor Jarak: {score})")
+    except Exception as e:
+        print(f"System: Gagal mengambil dokumen untuk inferensi: {str(e)}")
+
+    if not docs or all(doc.page_content.strip() == "" for doc in docs):
+        answer = "Assistant: Saya tidak memiliki informasi cukup dari dokumen yang diunggah untuk menjawab ini."
+    else:
+        print(f"System: Memproses dan menalar jawaban RAG untuk: {question}")
+        
+        chat_history_str = ""
+        for i, msg in enumerate(chat_history):
+            role = "User" if i % 2 == 0 else "Assistant"
+            try:
+                if isinstance(msg, dict) and "content" in msg:
+                    chat_history_str += f"{role}: {msg['content']}\n"
+                elif hasattr(msg, "content"):
+                    chat_history_str += f"{role}: {msg.content}\n"
+                else:
+                    print(f"System: Format pesan riwayat tidak valid pada indeks {i}: {msg}")
+                    continue
+            except Exception as e:
+                print(f"System: Gagal memproses pesan riwayat pada indeks {i}: {str(e)}")
+                continue
+        
+        try:
+            answer = stuff_chain.invoke({
+                "context": docs,
+                "question": question,
+                "chat_history": chat_history_str
+            }).strip()
+        except Exception as e:
+            print(f"System: Gagal menjalankan chain: {str(e)}")
+            answer = "Assistant: Saya tidak memiliki informasi cukup dari dokumen yang diunggah untuk menjawab ini."
+
+        if len(answer.split()) > 50 and "\n" not in answer:
+            answer = "\n".join([answer[i:i+100] for i in range(0, len(answer), 100)])
+
+    print(f"System: Memeriksa konteks jawaban RAG untuk: {question}")
+
+    log_entry = {
+        "id": str(uuid.uuid4()),
+        "timestamp": datetime.utcnow().isoformat(),
+        "input": question,
+        "output": answer,
+        "metadata": {
+            "source": "RAG System",
+            "model": "llama3-70b-8192",
+            "context_docs": len(docs),
+            "language": language,
+            "chat_history_length": len(chat_history)
+        }
+    }
+    try:
+        log_to_mysql("rag_logs", log_entry)
+    except Exception as e:
+        print(f"System: Gagal menyimpan log ke MySQL: {str(e)}")
+
+    updated_history = chat_history.copy()
+    updated_history.append({"content": question})
+    updated_history.append({"content": answer})
+    
+    return answer, updated_history
+
+
+file src/vector_db.py
+
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
+import torch
+
+def process_and_store_text(text: str, embedding_model, vector_store, metadata: dict = None):
+    if not text or not text.strip():
+        print("System: Tidak ada teks untuk diproses.")
+        return
+    
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=200,
+        separators=["\n\n", "\n", ". ", " ", ""],
+        add_start_index=True
+    )
+    chunks = text_splitter.split_text(text)
+    
+    # Pastikan metadata adalah dict, jika None gunakan default
+    if metadata is None:
+        metadata = {"filename": "unknown"}
+    elif not isinstance(metadata, dict):
+        print(f"System: Metadata tidak valid: {metadata}. Menggunakan default.")
+        metadata = {"filename": "unknown"}
+    
+    documents = [Document(page_content=chunk, metadata=metadata) for chunk in chunks]
+    
+    if not documents:
+        print("System: Tidak ada chunk yang dihasilkan dari teks.")
+        return
+    
+    batch_size = 16  # Optimalkan untuk M1 Pro
+    total_chunks = len(documents)
+    filename = metadata.get('filename', 'unknown')
+    print(f"System: Total {total_chunks} chunk akan disimpan untuk dokumen {filename} ke Pinecone.")
+    
+    for i in range(0, total_chunks, batch_size):
+        batch_docs = documents[i:i + batch_size]
+        try:
+            with torch.no_grad():  # Hemat memori
+                vector_store.add_documents(batch_docs)
+            print(f"System: Berhasil menyimpan {len(batch_docs)} chunk ke Pinecone (batch {i//batch_size + 1}/{total_chunks//batch_size + 1}).")
+        except Exception as e:
+            print(f"System: Gagal menyimpan batch ke Pinecone: {str(e)}")
+            raise e
+
+
+file .env
+
+# LangSmith adalah platform untuk melihat, memonitor, dan mengevaluasi performa chatbot yang dibangun dengan LangChain.
+LANGSMITH_TRACING=true
+LANGSMITH_ENDPOINT="https://api.smith.langchain.com"
+LANGSMITH_API_KEY="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"
+LANGSMITH_PROJECT="multimodal-assistant"  
+TOKENIZERS_PARALLELISM=false
+
+# Groq API untuk model bahasa
+GROQ_API_KEY="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"
+
+# PINECONE untuk vector store
+PINECONE_API_KEY=pcsk_2Ec4me_DFVLwueQa4Tx9MS9DtTCVftEj6gMsSE1beLk23HWv8d3wiyaMux72ANdWarub4Y
+PINECONE_ENVIRONMENT=us-west1-gcp
+
+#CLOUDINARY untuk penyimpanan file
+CLOUDINARY_CLOUD_NAME=dipoypooy
+CLOUDINARY_API_KEY=293591523956531
+CLOUDINARY_API_SECRET=4dJ_Hs1XA2ck7gALdTM01HlGpTo
+
+# MySQL Config
+MYSQL_HOST=localhost
+MYSQL_USER=root
+MYSQL_PASSWORD=Iqazsa0304$
+MYSQL_DATABASE=multimodal_assistant_db
+MYSQL_PORT=3306
+
+
+file app.py
+
+import streamlit as st
+import requests
+import os
+import tempfile
+from models import SUPPORTED_GROQ_MODELS
+import io
+
+API_URL = "http://127.0.0.1:8000"
+
+st.set_page_config(page_title="Multimodal Assistant", layout="wide")
+st.title("🤖 Multimodal Assistant")
+st.write("Pilih fitur di bawah untuk berinteraksi dengan asisten!")
+
+if "general_chat_history" not in st.session_state:
+    st.session_state["general_chat_history"] = []
+if "coder_chat_history" not in st.session_state:
+    st.session_state["coder_chat_history"] = []
+if "rag_chat_history" not in st.session_state:
+    st.session_state["rag_chat_history"] = []
+
+tab1, tab2, tab3 = st.tabs(["General Chat", "Coder Chat", "RAG System"])  # Hapus tab OCR
+
+with tab1:
+    st.header("💬 General Chat")
+    st.write("Tanyakan pertanyaan umum (misalnya, definisi atau fakta sederhana). Untuk coding, gunakan Coder Chat.")
+    model_general = st.selectbox("Pilih Model (General Chat):", SUPPORTED_GROQ_MODELS, index=0, key="model_general")
+    query_general = st.text_input("Masukkan pertanyaan (General):", key="query_general")
+    if st.button("Tanya (General)"):
+        response = requests.post(f"{API_URL}/chat/general/", json={"query": query_general, "model_name": model_general})
+        if response.status_code == 200:
+            st.markdown("**Jawaban:**")
+            st.markdown(response.json()["response"])
+            st.write(f"**Model Digunakan:** {response.json()['model']}")
+            st.session_state["general_chat_history"].append({"user": query_general, "assistant": response.json()["response"]})
+        else:
+            st.error(f"Gagal mendapatkan jawaban: {response.status_code} - {response.text}")
+    
+    if st.session_state["general_chat_history"]:
+        st.subheader("Riwayat Percakapan")
+        for chat in st.session_state["general_chat_history"]:
+            st.markdown(f"**User:** {chat['user']}")
+            st.markdown(f"**Assistant:** {chat['assistant']}")
+            st.markdown("---")
+
+with tab2:
+    st.header("💻 Coder Chat")
+    st.write("Tanyakan hal terkait coding (misalnya, membuat kode, debugging, atau penjelasan konsep pemrograman)!")
+    model_coder = st.selectbox("Pilih Model (Coder Chat):", SUPPORTED_GROQ_MODELS, index=0, key="model_coder")
+    query_coder = st.text_input("Masukkan pertanyaan coding:", key="query_coder")
+    if st.button("Tanya (Coder)"):
+        response = requests.post(f"{API_URL}/coder/coder/", json={"query": query_coder, "model_name": model_coder})
+        if response.status_code == 200:
+            st.markdown("**Jawaban:**")
+            st.markdown(response.json()["response"])
+            st.write(f"**Model Digunakan:** {response.json()['model']}")
+            st.session_state["coder_chat_history"].append({"user": query_coder, "assistant": response.json()["response"]})
+        else:
+            st.error(f"Gagal mendapatkan jawaban: {response.status_code} - {response.text}")
+    
+    if st.session_state["coder_chat_history"]:
+        st.subheader("Riwayat Percakapan")
+        for chat in st.session_state["coder_chat_history"]:
+            st.markdown(f"**User:** {chat['user']}")
+            st.markdown(f"**Assistant:** {chat['assistant']}")
+            st.markdown("---")
+
+with tab3:
+    st.header("📜 RAG System")
+    st.write("Unggah dokumen (PDF, maksimal 10MB) dan tanyakan sesuatu berdasarkan dokumen tersebut!")  
+    st.subheader("Upload Dokumen")
+    uploaded_files = st.file_uploader("Pilih file dokumen", type=["pdf"], accept_multiple_files=True) 
+    skip_duplicates = st.checkbox("Lewati file duplikat (jika nama sudah ada)")
+    if st.button("Upload"):
+        for uploaded_file in uploaded_files:
+            file_content = uploaded_file.read()
+            if len(file_content) > 10 * 1024 * 1024:
+                st.error(f"❌ File '{uploaded_file.name}' melebihi batas ukuran 10MB.")
+                continue
+            files = [("files", (uploaded_file.name, file_content, uploaded_file.type))]
+            response = requests.post(f"{API_URL}/rag/upload/", files=files, data={"skip_duplicates": skip_duplicates})
+            if response.status_code == 200:
+                st.success(f"✅ Berhasil mengupload: {uploaded_file.name}")
+                st.write("**System Message:**", response.json()["system_message"])
+                for result in response.json()["results"]:
+                    if result["status"] == "error":
+                        st.error(f"❌ Gagal memproses {result['filename']}: {result['text']}")
+                    elif result["status"] == "skipped":
+                        st.warning(f"⚠️ {result['text']}")
+                    else:
+                        st.info(f"📄 File {result['filename']}: {result['text']}")
+                        if "preview" in result:
+                            st.write(f"**Pratinjau Teks (100 karakter pertama):** {result['preview']}")
+            else:
+                st.error(f"❌ Gagal upload: {uploaded_file.name} - {response.status_code} - {response.text}")
+    
+    st.subheader("Tanya Berdasarkan Dokumen")
+    model_rag = st.selectbox("Pilih Model (RAG System):", SUPPORTED_GROQ_MODELS, index=0, key="model_rag")
+    query_rag = st.text_input("Masukkan pertanyaan (RAG):", key="query_rag")
+    if st.button("Tanya (RAG)"):
+        response = requests.post(f"{API_URL}/rag/query/", json={
+            "question": query_rag,
+            "chat_history": st.session_state["rag_chat_history"]
+        })
+        if response.status_code == 200:
+            st.markdown("**Jawaban:**")
+            st.markdown(response.json()["answer"])
+            st.write(f"**Model Digunakan:** {model_rag}")
+            st.session_state["rag_chat_history"] = response.json()["chat_history"]
+        else:
+            st.error(f"Gagal mendapatkan jawaban: {response.status_code} - {response.text}")
+    
+    if st.session_state["rag_chat_history"]:
+        st.subheader("Riwayat Percakapan")
+        for i in range(0, len(st.session_state["rag_chat_history"]), 2):
+            user_msg = st.session_state["rag_chat_history"][i]
+            assistant_msg = st.session_state["rag_chat_history"][i + 1]
+            st.markdown(f"**User:** {user_msg['content']}")
+            st.markdown(f"**Assistant:** {assistant_msg['content']}")
+            st.markdown("---")
+
+file config.py
+
+import os
+from dotenv import load_dotenv
+import cloudinary
+
+load_dotenv()
+
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+
+LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY")
+LANGSMITH_ENDPOINT = os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
+LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "multimodal-assistant")
+LANGSMITH_TRACING = os.getenv("LANGSMITH_TRACING", "false").lower() == "true"
+
+MYSQL_CONFIG = {
+    "host": os.getenv("MYSQL_HOST", "localhost"),
+    "user": os.getenv("MYSQL_USER", "root"),
+    "password": os.getenv("MYSQL_PASSWORD", ""),
+    "database": os.getenv("MYSQL_DATABASE", "multimodal_assistant")
+}
+
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True
+)
+
+if not GROQ_API_KEY:
+    raise ValueError("GROQ_API_KEY tidak ditemukan di .env")
+
+if LANGSMITH_TRACING:
+    os.environ["LANGCHAIN_TRACING_V2"] = "true"
+    os.environ["LANGCHAIN_API_KEY"] = LANGSMITH_API_KEY
+    os.environ["LANGCHAIN_ENDPOINT"] = LANGSMITH_ENDPOINT
+    os.environ["LANGCHAIN_PROJECT"] = LANGSMITH_PROJECT
+    print("System: LangSmith tracing diaktifkan.")
+else:
+    print("System: LangSmith tracing tidak diaktifkan.")
+
+
+file main.py
+
+from api.server import app
+from dotenv import load_dotenv
+import uvicorn
+
+load_dotenv()
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+file models.py
+
+import os
+import mysql.connector
+import torch
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_pinecone import PineconeVectorStore
+from langchain_groq import ChatGroq
+from src.vector_db import process_and_store_text
+from src.db import get_db_connection
+from config import GROQ_API_KEY, LANGSMITH_TRACING, MYSQL_CONFIG, PINECONE_API_KEY
+
+embedding_model = HuggingFaceEmbeddings(
+    model_name="BAAI/bge-m3",
+    model_kwargs={"device": "mps" if torch.backends.mps.is_available() else "cpu"}
+)
+
+INDEX_NAME = "rag-index"
+try:
+    vector_store = PineconeVectorStore(
+        index_name=INDEX_NAME,
+        embedding=embedding_model,
+        pinecone_api_key=PINECONE_API_KEY
+    )
+    print("System: Berhasil memuat Pinecone vector store.")
+except Exception as e:
+    print(f"System: Gagal memuat Pinecone vector store: {str(e)}. Membuat indeks baru.")
+    from pinecone import Pinecone, ServerlessSpec
+    pc = Pinecone(api_key=PINECONE_API_KEY)
+    pc.create_index(
+        name=INDEX_NAME,
+        dimension=1024,  
+        metric="cosine",
+        spec=ServerlessSpec(
+            cloud="aws",
+            region="us-east-1"  
+        )
+    )
+    vector_store = PineconeVectorStore(
+        index_name=INDEX_NAME,
+        embedding=embedding_model,
+        pinecone_api_key=PINECONE_API_KEY
+    )
+
+SUPPORTED_GROQ_MODELS = [
+    "llama3-70b-8192",
+    "llama3-8b-8192",
+    "gemma2-9b-it",
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant"
+]
+
+def get_groq_model(model_name: str = "llama3-70b-8192"):
+    if model_name not in SUPPORTED_GROQ_MODELS:
+        print(f"System: Model '{model_name}' tidak didukung. Menggunakan default 'llama3-70b-8192'.")
+        model_name = "llama3-70b-8192"
+    try:
+        return ChatGroq(
+            groq_api_key=GROQ_API_KEY,
+            model_name=model_name,
+            temperature=0.0,
+            max_tokens=4096
+        )
+    except Exception as e:
+        print(f"System: Gagal memuat model '{model_name}': {str(e)}. Menggunakan default 'llama3-70b-8192'.")
+        return ChatGroq(
+            groq_api_key=GROQ_API_KEY,
+            model_name="llama3-70b-8192",
+            temperature=0.0,
+            max_tokens=4096
+        )
+
+llm = get_groq_model()
+
+def load_from_mysql():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT filename, text_content FROM documents")
+        docs = cursor.fetchall()
+        print(f"System: Memuat {len(docs)} dokumen dari MySQL.")
+        for filename, text_content in docs:
+            print(f"System: Mengindeks dokumen: {filename}, ukuran teks: {len(text_content)} karakter")
+            process_and_store_text(text_content, embedding_model, vector_store, metadata={"filename": filename})
+        print("System: Selesai memuat ulang dokumen dari MySQL ke Pinecone.")
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print(f"System: Gagal memuat dari MySQL: {str(e)}")
+
+load_from_mysql()
+
+if LANGSMITH_TRACING:
+    from langsmith import Client
+    langsmith_client = Client()
+    print(f"System: Terhubung ke LangSmith project: {os.environ['LANGSMITH_PROJECT']}")
+
+
+file requirements.txt
+
+
+aiohappyeyeballs==2.6.1
+aiohttp==3.9.5
+aiosignal==1.3.2
+altair==5.5.0
+annotated-types==0.7.0
+anyio==4.9.0
+attrs==25.3.0
+beautifulsoup4==4.13.4
+blinker==1.9.0
+cachetools==5.5.2
+certifi==2025.1.31
+cffi==1.17.1
+charset-normalizer==3.4.1
+click==8.1.8
+coloredlogs==15.0.1
+cryptography==44.0.2
+dataclasses-json==0.6.7
+deep-translator==1.11.4
+defusedxml==0.7.1
+distro==1.9.0
+fastapi==0.115.12
+filelock==3.18.0
+flatbuffers==25.2.10
+frozenlist==1.6.0
+fsspec==2025.3.2
+gitdb==4.0.12
+GitPython==3.1.44
+groq==0.23.0
+h11==0.14.0
+httpcore==1.0.8
+httpx==0.28.1
+httpx-sse==0.4.0
+huggingface-hub==0.30.2
+humanfriendly==10.0
+idna==3.10
+Jinja2==3.1.6
+joblib==1.4.2
+jsonpatch==1.33
+jsonpointer==3.0.0
+jsonschema==4.23.0
+jsonschema-specifications==2025.4.1
+langchain==0.3.24
+langchain-community==0.3.22
+langchain-core==0.3.55
+langchain-groq==0.3.2
+langchain-huggingface==0.1.2
+langchain-text-splitters==0.3.8
+langdetect==1.0.9
+lxml==5.4.0
+MarkupSafe==3.0.2
+marshmallow==3.26.1
+mpmath==1.3.0
+multidict==6.4.3
+mypy_extensions==1.1.0
+mysql-connector-python==9.3.0
+narwhals==1.36.0
+networkx==3.4.2
+numpy>=1.23.5,<2.5
+onnx==1.17.0
+onnxruntime==1.21.1
+orjson==3.10.16
+packaging==24.2
+pandas==2.2.3
+pdf2image==1.17.0
+pdfminer.six==20250327
+pdfplumber==0.11.6
+pillow==11.2.1
+propcache==0.3.1
+protobuf==5.29.4
+pyarrow==19.0.1
+pycparser==2.22
+pydantic==2.11.3
+pydantic-settings==2.9.1
+pydantic_core==2.33.1
+pydeck==0.9.1
+pypdfium2==4.30.1
+pytesseract==0.3.13
+python-dateutil==2.9.0.post0
+python-dotenv==1.1.0
+python-magic==0.4.27
+python-multipart==0.0.20
+pytz==2025.2
+PyYAML==6.0.2
+referencing==0.36.2
+regex==2024.11.6
+requests==2.32.3
+requests-toolbelt==1.0.0
+rpds-py==0.24.0
+safetensors==0.5.3
+scikit-learn==1.6.1
+scipy==1.15.2
+sentence-transformers==4.1.0
+six==1.17.0
+smmap==5.0.2
+sniffio==1.3.1
+soupsieve==2.7
+SQLAlchemy==2.0.40
+starlette==0.46.2
+streamlit==1.44.1
+sympy==1.13.3
+tenacity==9.1.2
+threadpoolctl==3.6.0
+tokenizers==0.21.1
+toml==0.10.2
+torch==2.4.0
+tornado==6.4.2
+tqdm==4.67.1
+transformers==4.51.3
+typing-inspect==0.9.0
+typing-inspection==0.4.0
+typing_extensions==4.13.2
+tzdata==2025.2
+urllib3==2.4.0
+uvicorn==0.34.2
+watchdog==6.0.0
+yarl==1.20.0
+zstandard==0.23.0
+pinecone
+pinecone-client==5.0.1
+langchain-pinecone==0.2.0
+cloudinary
+PyPDF2
